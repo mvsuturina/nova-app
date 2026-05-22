@@ -266,9 +266,11 @@ let isLoading = false;
 
 // ── INIT ──────────────────────────────────────────────────
 async function initApp() {
+  console.log('initApp start');
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   sb.auth.onAuthStateChange(async (event, session) => {
+    console.log('authStateChange:', event, !!session);
     if (event === 'SIGNED_IN' && session) {
       currentUser = session.user;
       await loadUserData();
@@ -278,11 +280,50 @@ async function initApp() {
     }
   });
 
-  const { data: { session } } = await sb.auth.getSession();
+  const { data: { session }, error } = await sb.auth.getSession();
+  console.log('getSession:', !!session, error);
   if (session) {
     currentUser = session.user;
     await loadUserData();
   } else {
+    setScreen('auth');
+  }
+}
+
+// ── ЗАГРУЗКА ДАННЫХ ───────────────────────────────────────
+async function loadUserData() {
+  console.log('loadUserData start', currentUser?.id);
+  try {
+    const { data: pd } = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+    console.log('profile loaded:', pd);
+    if (pd) { profile = pd; if (pd.groq_api_key) localStorage.setItem('nova_api_key', pd.groq_api_key); }
+
+    const today = todayKey();
+    const { data: td } = await sb.from('task_logs').select('block_id,task_index')
+      .eq('user_id', currentUser.id).eq('completed_at', today);
+    checkedTasks = {};
+    if (td) td.forEach(t => { checkedTasks[`${t.block_id}-${t.task_index}`] = true; });
+
+    const from = new Date(); from.setDate(from.getDate() - 30);
+    const { data: hd } = await sb.from('task_logs')
+      .select('block_id,task_index,completed_at')
+      .eq('user_id', currentUser.id)
+      .gte('completed_at', from.toISOString().slice(0,10));
+    taskHistory = {};
+    if (hd) hd.forEach(t => {
+      if (!taskHistory[t.completed_at]) taskHistory[t.completed_at] = {};
+      taskHistory[t.completed_at][`${t.block_id}-${t.task_index}`] = true;
+    });
+
+    const { data: md } = await sb.from('chat_messages').select('role,content')
+      .eq('user_id', currentUser.id).order('created_at', { ascending: true }).limit(30);
+    if (md) messages = md;
+
+    console.log('loadUserData done, name:', profile.name);
+    if (!profile.name) setScreen('setup');
+    else showHome();
+  } catch(e) {
+    console.error('loadUserData error:', e);
     setScreen('auth');
   }
 }
@@ -315,36 +356,6 @@ async function sendMagicLink() {
   }
 }
 
-// ── ЗАГРУЗКА ДАННЫХ ───────────────────────────────────────
-async function loadUserData() {
-  const { data: pd } = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-  if (pd) { profile = pd; if (pd.groq_api_key) localStorage.setItem('nova_api_key', pd.groq_api_key); }
-
-  const today = todayKey();
-  const { data: td } = await sb.from('task_logs').select('block_id,task_index')
-    .eq('user_id', currentUser.id).eq('completed_at', today);
-  checkedTasks = {};
-  if (td) td.forEach(t => { checkedTasks[`${t.block_id}-${t.task_index}`] = true; });
-
-  // История за 30 дней для стриков
-  const from = new Date(); from.setDate(from.getDate() - 30);
-  const { data: hd } = await sb.from('task_logs')
-    .select('block_id,task_index,completed_at')
-    .eq('user_id', currentUser.id)
-    .gte('completed_at', from.toISOString().slice(0,10));
-  taskHistory = {};
-  if (hd) hd.forEach(t => {
-    if (!taskHistory[t.completed_at]) taskHistory[t.completed_at] = {};
-    taskHistory[t.completed_at][`${t.block_id}-${t.task_index}`] = true;
-  });
-
-  const { data: md } = await sb.from('chat_messages').select('role,content')
-    .eq('user_id', currentUser.id).order('created_at', { ascending: true }).limit(30);
-  if (md) messages = md;
-
-  if (!profile.name) setScreen('setup');
-  else showHome();
-}
 
 // ── ПРОФИЛЬ ───────────────────────────────────────────────
 async function saveProfile() {
