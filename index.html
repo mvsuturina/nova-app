@@ -269,19 +269,17 @@ async function initApp() {
   console.log('initApp start');
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  sb.auth.onAuthStateChange(async (event, session) => {
-    console.log('authStateChange:', event, !!session);
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      await loadUserData();
-    } else if (event === 'SIGNED_OUT') {
+  // слушаем только выход — загрузку делаем через getSession
+  sb.auth.onAuthStateChange((event, session) => {
+    console.log('authStateChange:', event);
+    if (event === 'SIGNED_OUT') {
       currentUser = null; profile = {}; messages = []; checkedTasks = {};
       setScreen('auth');
     }
   });
 
-  const { data: { session }, error } = await sb.auth.getSession();
-  console.log('getSession:', !!session, error);
+  const { data: { session } } = await sb.auth.getSession();
+  console.log('getSession:', !!session);
   if (session) {
     currentUser = session.user;
     await loadUserData();
