@@ -3,23 +3,40 @@
 
 const webpush = require('web-push');
 
-// Тексты уведомлений по UTC-часу (PDT = UTC-7)
-const SURVEYS = {
-  10: { title: 'Nova · Утренний опрос',  body: 'Доброе утро — заполни опрос 🌅' },
-  14: { title: 'Nova · Утренний отчёт',  body: 'Время утреннего отчёта ☀️' },
-  17: { title: 'Nova · Чекин 10:00',     body: 'Как дела? Быстрый чекин 🌿' },
-  20: { title: 'Nova · Чекин 13:00',     body: 'Дневной чекин — 2 минуты ⚡' },
-  23: { title: 'Nova · Чекин 16:00',     body: 'Почти вечер — отметься 🌆' },
-   2: { title: 'Nova · Вечерний отчёт',  body: 'Подведи итог дня ✨' },
-};
+// Расписание в минутах от полуночи UTC (PDT = UTC-7)
+const SURVEYS = [
+  { min: 10 * 60 + 58, title: 'Nova · Утренний опрос',  body: 'Доброе утро — заполни опрос 🌅' },
+  { min: 14 * 60 +  0, title: 'Nova · Утренний отчёт',  body: 'Время утреннего отчёта ☀️'     },
+  { min: 17 * 60 +  0, title: 'Nova · Чекин 10:00',     body: 'Как дела? Быстрый чекин 🌿'    },
+  { min: 20 * 60 +  0, title: 'Nova · Чекин 13:00',     body: 'Дневной чекин — 2 минуты ⚡'   },
+  { min: 23 * 60 +  0, title: 'Nova · Чекин 16:00',     body: 'Почти вечер — отметься 🌆'     },
+  { min:  2 * 60 + 30, title: 'Nova · Вечерний отчёт',  body: 'Подведи итог дня ✨'            },
+];
+
+function minuteDiff(a, b) {
+  const d = Math.abs(a - b);
+  return d > 720 ? 1440 - d : d; // учитываем переход через полночь
+}
 
 async function main() {
-  const hour = new Date().getUTCHours();
-  const survey = SURVEYS[hour]
-    || (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+  const now = new Date();
+  const currentMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  console.log(`UTC ${now.getUTCHours()}:${String(now.getUTCMinutes()).padStart(2,'0')} (${currentMin} мин)`);
+
+  const closest = SURVEYS.reduce((best, s) => {
+    const d = minuteDiff(currentMin, s.min);
+    return (!best || d < best.diff) ? { ...s, diff: d } : best;
+  }, null);
+
+  const survey = (closest && closest.diff <= 75)
+    ? closest
+    : (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
         ? { title: 'Nova · Тест', body: 'Уведомления работают ✓' }
         : null);
-  if (!survey) { console.log(`Нет опроса для UTC hour=${hour}`); return; }
+
+  if (!survey) { console.log(`Нет опроса — ближайший через ${closest.diff} мин`); return; }
+  console.log(`→ ${survey.title} (отклонение ${closest?.diff ?? 0} мин)`);
+
 
   // Получаем подписку из Supabase
   const url = `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${process.env.NOVA_USER_ID}&select=push_subscription`;
