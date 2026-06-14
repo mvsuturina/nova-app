@@ -315,36 +315,78 @@ async function removeWater() {
 function renderDailyTasks() {
   const container = document.getElementById('daily-tasks-list');
   if (!dailyTasks.length) {
-    container.innerHTML = '<div class="empty-state">Задачи появятся после первого опроса</div>';
+    container.innerHTML = '<div class="empty-state">Нажми + чтобы добавить задачу</div>';
     return;
   }
   container.innerHTML = '';
   dailyTasks.forEach(task => {
-    const isJournal = task.tool.tool_type === 'journal';
-    const entry     = isJournal ? todayJournal[task.id] : null;
+    const isCustom  = !task.tool;
+    const isJournal = !isCustom && task.tool.tool_type === 'journal';
 
     const row = document.createElement('div');
     row.className = 'task-row' + (task.is_complete ? ' done' : '');
 
-    const playBtn = (isJournal && task.is_complete)
-      ? `<button onclick="event.stopPropagation();openJournal(${task.id},${task.tool.weight})"
-                 style="background:none;border:1px solid #2d2550;border-radius:8px;color:var(--purple-light);
-                        font-size:12px;padding:4px 10px;cursor:pointer;font-family:'Jost',sans-serif;flex-shrink:0;">▶</button>`
-      : '';
-
-    row.innerHTML = `
-      <div class="task-check ${task.is_complete ? 'checked' : ''}">${task.is_complete ? '✓' : ''}</div>
-      <div class="task-text">${task.tool.name}</div>
-      ${playBtn}
-      <div class="task-meta">${task.tool.duration_min} мин</div>`;
-
-    if (isJournal && !task.is_complete) {
-      row.onclick = () => openJournal(task.id, task.tool.weight);
-    } else if (!isJournal && !task.is_complete) {
-      row.onclick = () => completeTask(task.id, task.tool.weight);
+    if (isCustom) {
+      const delBtn = !task.is_complete
+        ? `<button onclick="event.stopPropagation();deleteCustomTask(${task.id})"
+                   style="background:none;border:none;color:var(--text-faint);font-size:14px;
+                          cursor:pointer;padding:0 4px;flex-shrink:0;">✕</button>`
+        : '';
+      row.innerHTML = `
+        <div class="task-check ${task.is_complete ? 'checked' : ''}">${task.is_complete ? '✓' : ''}</div>
+        <div class="task-text">${task.custom_name}</div>
+        ${delBtn}
+        <div class="task-meta">−10</div>`;
+      if (!task.is_complete) row.onclick = () => completeTask(task.id, -10);
+    } else {
+      const playBtn = (isJournal && task.is_complete)
+        ? `<button onclick="event.stopPropagation();openJournal(${task.id},${task.tool.weight})"
+                   style="background:none;border:1px solid #2d2550;border-radius:8px;color:var(--purple-light);
+                          font-size:12px;padding:4px 10px;cursor:pointer;font-family:'Jost',sans-serif;flex-shrink:0;">▶</button>`
+        : '';
+      row.innerHTML = `
+        <div class="task-check ${task.is_complete ? 'checked' : ''}">${task.is_complete ? '✓' : ''}</div>
+        <div class="task-text">${task.tool.name}</div>
+        ${playBtn}
+        <div class="task-meta">${task.tool.duration_min} мин</div>`;
+      if (isJournal && !task.is_complete) row.onclick = () => openJournal(task.id, task.tool.weight);
+      else if (!isJournal && !task.is_complete) row.onclick = () => completeTask(task.id, task.tool.weight);
     }
     container.appendChild(row);
   });
+}
+
+function toggleAddTask() {
+  const row = document.getElementById('add-task-row');
+  const input = document.getElementById('add-task-input');
+  const visible = row.style.display !== 'none';
+  row.style.display = visible ? 'none' : 'block';
+  if (!visible) input.focus();
+}
+
+async function submitAddTask() {
+  const input = document.getElementById('add-task-input');
+  const name  = input.value.trim();
+  if (!name) return;
+  input.value = '';
+  document.getElementById('add-task-row').style.display = 'none';
+
+  const { data, error } = await sb.from('daily_tasks').insert({
+    user_id:     currentUser.id,
+    date:        todayKey(),
+    custom_name: name,
+    is_complete: false,
+  }).select('id, is_complete, custom_name').maybeSingle();
+
+  if (error) { console.error('addTask:', error); return; }
+  dailyTasks.push({ ...data, tool: null });
+  renderDailyTasks();
+}
+
+async function deleteCustomTask(taskId) {
+  await sb.from('daily_tasks').delete().eq('id', taskId);
+  dailyTasks = dailyTasks.filter(t => t.id !== taskId);
+  renderDailyTasks();
 }
 
 async function completeTask(taskId, toolWeight) {

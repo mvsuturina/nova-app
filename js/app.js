@@ -68,7 +68,7 @@ async function loadUserData() {
     todaySnapshot  = snapScore.data?.daily_score_snapshots?.[0] || null;
 
     const { data: td } = await sb.from('daily_tasks')
-      .select('id, is_complete, tool:tool_id(name, duration_min, weight, tool_type)')
+      .select('id, is_complete, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
       .eq('user_id', currentUser.id)
       .eq('date', today)
       .order('created_at', { ascending: true });
