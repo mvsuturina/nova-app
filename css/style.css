@@ -153,6 +153,13 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .meal-survey-photo { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; cursor: pointer; font-size: 12px; color: var(--text-faint); font-family: 'Jost', sans-serif; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; -webkit-tap-highlight-color: transparent; }
 .meal-survey-photo:active { opacity: 0.7; }
 
+/* ── РАЗБОР СЧЁТА ──────────────────────────────────────── */
+.bkd-row   { display:flex; align-items:center; gap:16px; padding:12px 0; border-bottom:1px solid var(--bg3); }
+.bkd-delta { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; min-width:44px; text-align:right; flex-shrink:0; }
+.bkd-info  { flex:1; }
+.bkd-text  { font-size:13px; color:var(--text-dim); }
+.bkd-val   { font-size:11px; color:var(--text-faint); margin-top:2px; letter-spacing:1px; }
+
 /* ── ЖУРНАЛ ДНЯ ────────────────────────────────────────── */
 .dl-summary { display: flex; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
 .dl-summary-item { flex: 1; text-align: center; padding: 12px 6px; border-right: 1px solid var(--border); }

@@ -46,6 +46,8 @@ function renderScore() {
   zoneEl.textContent  = ZONE_LABELS[zone];
   zoneEl.className    = `score-zone ${zone}`;
   document.getElementById('score-desc').textContent = ZONE_DESCS[zone];
+  const btn = document.getElementById('breakdown-btn');
+  if (btn) btn.style.display = 'block';
 }
 
 function renderSurveyCta() {
