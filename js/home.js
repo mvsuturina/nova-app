@@ -197,10 +197,10 @@ function renderTrackers() {
   const activities = ['warmup', 'workout', 'walk'].map(type => {
     const { label, hint } = ACTIVITY_SLOTS[type];
     const done = todayActivity[type];
-    return `<button class="meal-slot${done ? ' done' : ''}" onclick="logActivity('${type}')" style="flex:1;">
-      <div class="meal-slot-icon">${done ? '✓' : '○'}</div>
-      <div class="meal-slot-name">${label}</div>
-      <div class="meal-slot-window">${hint}</div>
+    return `<button class="act-slot${done ? ' done' : ''}" onclick="logActivity('${type}')" style="flex:1;">
+      <div class="act-slot-icon">${done ? '✓' : '○'}</div>
+      <div class="act-slot-name">${label}</div>
+      <div class="act-slot-hint">${hint}</div>
     </button>`;
   }).join('');
 
