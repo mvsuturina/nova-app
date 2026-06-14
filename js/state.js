@@ -39,7 +39,11 @@ let survey2Photos       = {};  // File objects for meal photos pending upload
 let s2ActiveQuestions   = [];  // [{id, key, text, weight_yes, weight_no}, ...] — filtered by skip logic
 let s2SurveyId          = 2;   // which survey is currently active in the generic engine
 
-function todayKey() { return new Date().toISOString().slice(0, 10); }
+let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+function todayKey() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: userTimezone });
+}
 
 function setScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));

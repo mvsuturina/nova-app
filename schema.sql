@@ -72,8 +72,11 @@ CREATE TABLE public.profiles (
   goals         jsonb DEFAULT '[]'::jsonb,
   groq_api_key  text,
   role          text DEFAULT 'Software Engineer',
+  timezone      text DEFAULT 'UTC',
   updated_at    timestamptz DEFAULT now()
 );
+
+-- Incremental (existing DB): ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS timezone text DEFAULT 'UTC';
 
 
 -- ─── ЧАТ (NOVA) ───────────────────────────────────────────────────────────

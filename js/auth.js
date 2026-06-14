@@ -27,6 +27,7 @@ async function sendMagicLink() {
 
 async function saveProfile() {
   const apiKey = document.getElementById('s-apikey').value.trim();
+  const tz = document.getElementById('s-timezone').value || userTimezone;
   const newProfile = {
     id:         currentUser.id,
     name:       document.getElementById('s-name').value.trim(),
@@ -34,12 +35,14 @@ async function saveProfile() {
     challenges: document.getElementById('s-challenges').value.trim(),
     goals:      [0,1,2,3].map(i => document.getElementById('g'+i).value.trim()),
     role:       'Software Engineer',
+    timezone:   tz,
     groq_api_key: apiKey || profile.groq_api_key || '',
     updated_at: new Date().toISOString(),
   };
   const { error } = await sb.from('profiles').upsert(newProfile);
   if (!error) {
     profile = newProfile;
+    userTimezone = tz;
     if (apiKey) localStorage.setItem('nova_api_key', apiKey);
     const btn = document.querySelector('#setup-screen .save-btn');
     if (btn) { btn.textContent = '✓ СОХРАНЕНО'; setTimeout(() => btn.textContent = 'СОХРАНИТЬ →', 1500); }
@@ -52,6 +55,7 @@ function showSetup() {
   document.getElementById('s-focus').value      = profile.focus || '';
   document.getElementById('s-challenges').value = profile.challenges || '';
   document.getElementById('s-apikey').value     = profile.groq_api_key || '';
+  document.getElementById('s-timezone').value   = profile.timezone || userTimezone;
   (profile.goals || []).forEach((g, i) => {
     const el = document.getElementById('g'+i);
     if (el) el.value = g;

@@ -9,6 +9,7 @@ async function initApp() {
       todaySurvey5Done = false; todaySurvey6Done = false; todaySnapshot = null;
       todayMiniGoals  = []; todayMealPhotos = { breakfast: null, lunch: null, dinner: null };
       todayActivity   = { warmup: false, workout: false, walk: false };
+      userTimezone    = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       setScreen('auth');
     }
   });
@@ -25,6 +26,7 @@ async function loadUserData() {
     if (pd) {
       profile = pd;
       if (pd.groq_api_key) localStorage.setItem('nova_api_key', pd.groq_api_key);
+      if (pd.timezone) userTimezone = pd.timezone;
     }
 
     const today = todayKey();

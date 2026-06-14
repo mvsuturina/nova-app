@@ -62,6 +62,35 @@
         <input class="field-input" style="margin-bottom:0" id="g3" value="Найти своих людей в LA">
       </div>
 
+      <label class="field-label" style="margin-top:20px">Часовой пояс</label>
+      <select class="field-input" id="s-timezone">
+        <optgroup label="США">
+          <option value="America/Los_Angeles">Los Angeles / San Francisco (UTC−8/−7)</option>
+          <option value="America/Denver">Denver / Phoenix (UTC−7/−6)</option>
+          <option value="America/Chicago">Chicago / Dallas (UTC−6/−5)</option>
+          <option value="America/New_York">New York / Miami (UTC−5/−4)</option>
+        </optgroup>
+        <optgroup label="Европа">
+          <option value="Europe/London">Лондон (UTC+0/+1)</option>
+          <option value="Europe/Paris">Париж / Берлин / Рим (UTC+1/+2)</option>
+          <option value="Europe/Helsinki">Хельсинки / Киев / Рига (UTC+2/+3)</option>
+          <option value="Europe/Moscow">Москва / Санкт-Петербург (UTC+3)</option>
+          <option value="Europe/Istanbul">Стамбул / Тбилиси (UTC+3)</option>
+        </optgroup>
+        <optgroup label="Азия">
+          <option value="Asia/Dubai">Дубай / Абу-Даби (UTC+4)</option>
+          <option value="Asia/Tashkent">Ташкент / Алматы (UTC+5/+6)</option>
+          <option value="Asia/Kolkata">Мумбаи / Дели (UTC+5:30)</option>
+          <option value="Asia/Bangkok">Бангкок / Джакарта (UTC+7)</option>
+          <option value="Asia/Singapore">Сингапур / Куала-Лумпур (UTC+8)</option>
+          <option value="Asia/Seoul">Сеул / Токио (UTC+9)</option>
+        </optgroup>
+        <optgroup label="Австралия / Океания">
+          <option value="Australia/Sydney">Сидней / Мельбурн (UTC+10/+11)</option>
+          <option value="Pacific/Auckland">Окленд (UTC+12/+13)</option>
+        </optgroup>
+      </select>
+
       <label class="field-label" style="margin-top:20px">🔑 Groq API Key</label>
       <input class="field-input" id="s-apikey" type="password" placeholder="gsk_...">
       <div style="font-size:11px;color:#5a4f7a;margin-top:-14px;margin-bottom:20px;line-height:1.6;">
