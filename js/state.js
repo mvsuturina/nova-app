@@ -45,6 +45,12 @@ function todayKey() {
   return new Date().toLocaleDateString('en-CA', { timeZone: userTimezone });
 }
 
+function tomorrowKey() {
+  const [y, m, d] = todayKey().split('-').map(Number);
+  const t = new Date(y, m - 1, d + 1);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
 function setScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(name + '-screen').classList.add('active');

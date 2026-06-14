@@ -517,9 +517,7 @@ async function _submitSurvey(surveyId) {
   // Мини-цели → в mini_goals с датой завтрашнего дня (каждая строка = отдельная запись)
   const goalsText = survey2Ans['tomorrow_goals'];
   if (goalsText && goalsText.trim()) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const tomorrowStr = tomorrowKey();
     const lines = goalsText.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length) {
       await sb.from('mini_goals').insert(

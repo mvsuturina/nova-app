@@ -64,8 +64,8 @@ async function loadUserData() {
     todaySurvey4Done = !!s4check.data;
     todaySurvey5Done = !!s5check.data;
     todaySurvey6Done = !!s6check.data;
-    todayMiniGoals   = mgData.data || [];
-    todaySnapshot    = snapScore.data?.daily_score_snapshots?.[0] || null;
+    todayMiniGoals = mgData.data || [];
+    todaySnapshot  = snapScore.data?.daily_score_snapshots?.[0] || null;
 
     const { data: td } = await sb.from('daily_tasks')
       .select('id, is_complete, tool:tool_id(name, duration_min, weight, tool_type)')

@@ -1,0 +1,10 @@
+{
+  "name": "Nova",
+  "short_name": "Nova",
+  "description": "Твой персональный агент здоровья",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08070f",
+  "theme_color": "#08070f",
+  "orientation": "portrait"
+}
