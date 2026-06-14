@@ -303,4 +303,69 @@ my_param_log: [{ time: new Date().toISOString(), value: val }],                 
 - `daily_survey_answers.value` всегда `text`: для bool → `'true'`/`'false'`, для radio → строка id, для scale → `'5'`
 - Circular FK: `daily_scores.session_id ↔ daily_survey_sessions.daily_score_id` — оба заполняются после INSERT
 - Опрос 1 использует hardcoded `question_id` 1, 2, 3 в `daily_survey_answers` — не менять порядок INSERT в questions
+
+---
+
+## Безопасность данных и работа со схемой
+
+### Аккаунты
+- **Боевой аккаунт** (mayv666@gmail.com): `d0f3ba43-2690-46d1-8d1e-2b8f4c0abec5`
+- **Тестовый аккаунт**: отдельный профиль для проверки изменений перед деплоем
+
+### Правила изменения схемы в продакшне
+`schema.sql` — только документация. В Supabase применять исключительно инкрементальные команды:
+
+| Операция | Безопасно | Опасно |
+|----------|-----------|--------|
+| Новая таблица | `CREATE TABLE IF NOT EXISTS` | `DROP TABLE ... CASCADE` |
+| Новая колонка | `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` | — |
+| Переименовать колонку | `ALTER TABLE ... RENAME COLUMN` | — |
+| Удалить колонку | только если точно не используется | |
+| Изменить тип | `ALTER COLUMN ... TYPE ... USING ...` | — |
+
+**Порядок деплоя:**
+1. Сделать дамп боевого аккаунта (SQL ниже)
+2. Проверить изменение на тестовом аккаунте
+3. Применить инкрементальный SQL на продакшне
+4. Задеплоить JS/CSS
+
+### Дамп боевых данных (запускать перед любым изменением схемы)
+
+```sql
+SELECT json_build_object(
+  'exported_at', now(),
+  'user_id', 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5',
+  'scores',    (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM daily_scores          WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'sessions',  (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM daily_survey_sessions WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'answers',   (SELECT json_agg(row_to_json(t)) FROM (SELECT a.* FROM daily_survey_answers a JOIN daily_survey_sessions s ON s.id = a.session_id WHERE s.user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'snapshots', (SELECT json_agg(row_to_json(t)) FROM (SELECT sn.* FROM daily_score_snapshots sn JOIN daily_scores sc ON sc.id = sn.score_id WHERE sc.user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'meals',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM meal_log              WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'water',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM water_log             WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'activity',  (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM activity_log          WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'goals',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM mini_goals            WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'tasks',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM daily_tasks           WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'journals',  (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM journal_entries       WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'hunger',    (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM hunger_log            WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'emotions',  (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM emotion_log           WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t)
+) AS backup;
+```
+
+### Частые фиксы
+
+**Даты сохранились на день раньше/позже** (баг UTC vs локальный TZ):
+```sql
+-- Проверить
+SELECT id, text, date, created_at FROM public.mini_goals
+WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5' ORDER BY created_at DESC LIMIT 20;
+
+-- Сдвинуть на день назад (если created_at < 07:00 UTC = до полуночи LA)
+UPDATE public.mini_goals SET date = date - 1
+WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5'
+  AND date = CURRENT_DATE AND created_at < CURRENT_DATE + interval '7 hours';
+
+-- Сдвинуть на завтра → сегодня (если goals сохранились как +1 лишний день)
+UPDATE public.mini_goals SET date = CURRENT_DATE
+WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5'
+  AND date = CURRENT_DATE + 1;
+```
 - `debugResetDay()` в `app.js` — кнопка для сброса данных за сегодня (dev only)

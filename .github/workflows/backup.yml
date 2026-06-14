@@ -1,0 +1,71 @@
+name: Daily Backup
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # 7am UTC = midnight PDT (UTC-7)
+  workflow_dispatch:       # ручной запуск из вкладки Actions
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch data from Supabase
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          UID: ${{ secrets.NOVA_USER_ID }}
+        run: |
+          H1="apikey: $KEY"
+          H2="Authorization: Bearer $KEY"
+          DATE=$(date +%Y-%m-%d)
+
+          get() {
+            curl -sf -H "$H1" -H "$H2" \
+              "$URL/rest/v1/$1?user_id=eq.$UID&select=$2&order=created_at.asc&limit=10000"
+          }
+
+          # Sessions with embedded answers (one query)
+          sessions=$(curl -sf -H "$H1" -H "$H2" \
+            "$URL/rest/v1/daily_survey_sessions?user_id=eq.$UID&select=*,answers:daily_survey_answers(*)&order=completed_at.asc&limit=10000")
+
+          # Scores with embedded snapshots (one query)
+          scores=$(curl -sf -H "$H1" -H "$H2" \
+            "$URL/rest/v1/daily_scores?user_id=eq.$UID&select=*,snapshot:daily_score_snapshots(*)&order=created_at.asc&limit=10000")
+
+          jq -n \
+            --arg date "$DATE" \
+            --arg uid  "$UID" \
+            --argjson sessions  "$sessions" \
+            --argjson scores    "$scores" \
+            --argjson meals     "$(get meal_log     '*')" \
+            --argjson water     "$(get water_log    '*')" \
+            --argjson activity  "$(get activity_log '*')" \
+            --argjson goals     "$(get mini_goals   '*')" \
+            --argjson tasks     "$(get daily_tasks  '*')" \
+            --argjson journals  "$(get journal_entries '*')" \
+            --argjson hunger    "$(get hunger_log   '*')" \
+            --argjson emotions  "$(get emotion_log  '*')" \
+            '{
+              exported_at: $date,
+              user_id:     $uid,
+              sessions:    $sessions,
+              scores:      $scores,
+              meals:       $meals,
+              water:       $water,
+              activity:    $activity,
+              goals:       $goals,
+              tasks:       $tasks,
+              journals:    $journals,
+              hunger:      $hunger,
+              emotions:    $emotions
+            }' > "nova-backup-${DATE}.json"
+
+          echo "Done. Size: $(wc -c < nova-backup-${DATE}.json) bytes"
+
+      - name: Save as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-backup-${{ env.DATE || 'manual' }}
+          path: nova-backup-*.json
+          retention-days: 400  # максимум для публичных репо

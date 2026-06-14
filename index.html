@@ -215,7 +215,7 @@
 <script src="js/app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
     // When a new SW version activates, reload the page to get fresh files
     navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
   }
