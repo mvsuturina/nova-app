@@ -1,4 +1,4 @@
-const CACHE = 'nova-app-v5';
+const CACHE = 'nova-app-v6';
 
 // Install: activate immediately without waiting for old tabs to close
 self.addEventListener('install', () => self.skipWaiting());
@@ -26,7 +26,13 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  e.waitUntil(clients.openWindow('/nova-app/'));
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes('/nova-app/'));
+      if (existing) return existing.focus();
+      return self.clients.openWindow('/nova-app/');
+    })
+  );
 });
 
 // Fetch: network-first for same-origin assets; skip external APIs
