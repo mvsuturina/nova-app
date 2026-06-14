@@ -1,13 +1,13 @@
-name: Survey Notifications
+name: Survey Notifications (PDT)
 
 on:
   schedule:
-    - cron: '0 14 * * *'   # 7:00 PDT  — Утренний опрос
-    - cron: '0 16 * * *'   # 9:00 PDT  — Утренний отчёт
-    - cron: '0 17 * * *'   # 10:00 PDT — Чекин 10:00
-    - cron: '0 21 * * *'   # 14:00 PDT — Чекин 14:00
-    - cron: '0 23 * * *'   # 16:00 PDT — Чекин 16:00
-    - cron: '0 4 * * *'    # 21:00 PDT — Вечерний отчёт
+    - cron: '58 10 * * *'  # 3:58 AM PDT  — Утренний опрос
+    - cron: '0  14 * * *'  # 7:00 AM PDT  — Утренний отчёт
+    - cron: '0  17 * * *'  # 10:00 AM PDT — Чекин 10:00
+    - cron: '0  20 * * *'  # 1:00 PM PDT  — Чекин 13:00
+    - cron: '0  23 * * *'  # 4:00 PM PDT  — Чекин 16:00
+    - cron: '30 2  * * *'  # 7:30 PM PDT  — Вечерний отчёт
   workflow_dispatch:        # ручной запуск для теста
 
 jobs:
