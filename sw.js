@@ -1,4 +1,4 @@
-const CACHE = 'nova-app-v3';
+const CACHE = 'nova-app-v4';
 
 // Install: activate immediately without waiting for old tabs to close
 self.addEventListener('install', () => self.skipWaiting());
@@ -10,6 +10,23 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Push: показываем уведомление
+self.addEventListener('push', e => {
+  const d = e.data?.json() || {};
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'Nova', {
+      body:      d.body || '',
+      tag:       'nova-survey',
+      renotify:  true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow('/nova-app/'));
 });
 
 // Fetch: network-first for same-origin assets; skip external APIs

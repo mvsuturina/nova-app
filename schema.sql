@@ -72,7 +72,8 @@ CREATE TABLE public.profiles (
   goals         jsonb DEFAULT '[]'::jsonb,
   groq_api_key  text,
   role          text DEFAULT 'Software Engineer',
-  timezone      text,
+  timezone          text,
+  push_subscription jsonb,
   updated_at    timestamptz DEFAULT now()
 );
 
@@ -232,7 +233,7 @@ INSERT INTO public.questions (key, text, type, ref_table, weight_yes, weight_no,
   ('warmup',      'Зарядка была?',            'bool',  NULL,      -10,   5,     NULL),
   ('workout',     'Разминка была?',           'bool',  NULL,      -10,   0,     NULL),
   ('water',       'Воду пила?',               'bool',  NULL,      -5,    10,    NULL),
-  ('work',        'Работа продолжается?',     'bool',  NULL,      -10,   10,    NULL),
+  ('work',        'Работа продолжается?',     'bool',  NULL,       10,  -10,    NULL),
   -- Голод (опрос 1 + 2): шкала 1-10, экстремальные значения = стресс
   ('hunger',      'Голод?',                   'scale', NULL,           NULL,  NULL,  '{"1":60,"2":40,"3":20,"4":0,"5":0,"6":0,"7":0,"8":20,"9":40,"10":60}'),
   -- Состояние живота: radio из stomach_states

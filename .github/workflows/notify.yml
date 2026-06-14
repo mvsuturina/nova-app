@@ -1,0 +1,33 @@
+name: Survey Notifications
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 7:00 PDT  — Утренний опрос
+    - cron: '0 16 * * *'   # 9:00 PDT  — Утренний отчёт
+    - cron: '0 17 * * *'   # 10:00 PDT — Чекин 10:00
+    - cron: '0 21 * * *'   # 14:00 PDT — Чекин 14:00
+    - cron: '0 23 * * *'   # 16:00 PDT — Чекин 16:00
+    - cron: '0 4 * * *'    # 21:00 PDT — Вечерний отчёт
+  workflow_dispatch:        # ручной запуск для теста
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web-push
+        run: npm install web-push
+
+      - name: Send push notification
+        env:
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVA_USER_ID:  ${{ secrets.NOVA_USER_ID }}
+          VAPID_PUBLIC:  ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: node .github/scripts/send-push.js

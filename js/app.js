@@ -111,7 +111,7 @@ async function loadUserData() {
     if (md) messages = md;
 
     if (!profile.name) setScreen('setup');
-    else showHome();
+    else { showHome(); initPush(); }
   } catch(e) {
     console.error('loadUserData:', e);
     setScreen('auth');
