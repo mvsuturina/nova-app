@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08070f">
+<title>NOVA — Журнал</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #08070f; --bg2: #0e0c18; --bg3: #13111f;
+  --border: #1e1a30; --purple: #7c3aed; --purple-light: #a78bfa;
+  --purple-dim: #2d1f4e; --text: #e8e0ff; --text-dim: #9b85c4;
+  --text-muted: #5a4f7a; --text-faint: #3d3560;
+  --green: #10b981; --gold: #f59e0b; --orange: #f97316; --red: #ef4444;
+}
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Jost', sans-serif; -webkit-font-smoothing: antialiased; }
+#app { height: 100vh; display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; position: relative; overflow: hidden; }
+.screen { display: none; flex-direction: column; height: 100%; }
+.screen.active { display: flex; }
+
+.top-bar { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 14px; border-bottom: 1px solid var(--bg3); flex-shrink: 0; }
+.logo-small { font-family: 'Cormorant Garamond', serif; font-size: 22px; letter-spacing: 5px; color: var(--purple-light); font-weight: 300; }
+.date-display { font-size: 11px; color: var(--text-faint); letter-spacing: 1px; margin-top: 3px; }
+.back-link { font-size: 12px; color: var(--text-muted); letter-spacing: 1px; background: none; border: none; cursor: pointer; font-family: 'Jost', sans-serif; text-decoration: none; }
+
+/* AUTH */
+#auth-screen { justify-content: center; padding: 40px 24px; }
+.field-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
+.field-input { width: 100%; background: var(--bg2); border: 1px solid #2d2550; border-radius: 12px; padding: 13px 16px; color: var(--text); font-size: 15px; font-family: 'Jost', sans-serif; outline: none; margin-bottom: 16px; transition: border-color 0.2s; }
+.field-input:focus { border-color: var(--purple); }
+.btn-primary { width: 100%; background: linear-gradient(135deg, var(--purple), #5b21b6); border: none; border-radius: 14px; padding: 16px; color: white; font-size: 14px; font-family: 'Jost', sans-serif; letter-spacing: 2px; cursor: pointer; transition: opacity 0.2s; }
+.btn-primary:active { opacity: 0.8; }
+.btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+/* HOME */
+.scroll-area { flex: 1; overflow-y: auto; padding: 0 18px 100px; -webkit-overflow-scrolling: touch; }
+.section-label { font-size: 9px; letter-spacing: 3px; color: var(--text-faint); margin-bottom: 10px; margin-top: 6px; text-transform: uppercase; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 20px; }
+
+/* GLASS */
+.glass-wrapper { display: flex; flex-direction: column; align-items: center; margin: 24px 0 20px; animation: fadeUp 0.4s ease; }
+.glass-svg-wrap { position: relative; }
+.glass-center-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.glass-pct { font-family: 'Cormorant Garamond', serif; font-size: 44px; font-weight: 300; line-height: 1; }
+.glass-lbl { font-size: 10px; letter-spacing: 3px; color: var(--text-muted); margin-top: 4px; }
+.glass-zone { font-size: 12px; margin-top: 10px; color: var(--text-muted); letter-spacing: 1px; }
+
+/* CHECKUP BUTTONS */
+.checkup-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: linear-gradient(135deg, var(--purple), #5b21b6); border: none; border-radius: 16px; padding: 18px; color: white; font-size: 14px; font-family: 'Jost', sans-serif; letter-spacing: 2px; cursor: pointer; margin-bottom: 10px; transition: opacity 0.2s; -webkit-tap-highlight-color: transparent; }
+.checkup-btn:active { opacity: 0.8; }
+.checkup-btn.done { background: none; border: 1px solid var(--border); color: var(--text-muted); cursor: default; letter-spacing: 1px; }
+.sos-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: linear-gradient(135deg, #dc2626, #7f1d1d); border: none; border-radius: 16px; padding: 20px; color: white; font-size: 15px; font-family: 'Jost', sans-serif; letter-spacing: 2px; cursor: pointer; margin-bottom: 24px; margin-top: 4px; box-shadow: 0 4px 20px rgba(220,38,38,0.25); transition: opacity 0.2s; -webkit-tap-highlight-color: transparent; }
+.sos-btn:active { opacity: 0.8; }
+
+/* WATER */
+.water-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.water-num { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 300; color: var(--purple-light); line-height: 1; }
+.water-goal-txt { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.water-btns { display: flex; gap: 8px; }
+.water-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--purple-dim); background: var(--bg3); color: var(--purple-light); font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+.water-btn:active { background: var(--purple-dim); }
+.water-dots { display: flex; gap: 5px; flex-wrap: wrap; }
+.wdot { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 15px; transition: all 0.2s; }
+.wdot.on { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+
+/* INLINE WATER COUNTER */
+.inline-water-counter { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 32px; }
+.inline-water-display { text-align: center; }
+.inline-water-num { font-family: 'Cormorant Garamond', serif; font-size: 56px; font-weight: 300; color: var(--purple-light); line-height: 1; }
+.inline-water-sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; letter-spacing: 1px; }
+
+/* ACTIVITY */
+.act-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.act-btn { background: var(--bg3); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 8px; text-align: center; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+.act-btn.on { background: var(--purple-dim); border-color: var(--purple); }
+.act-emoji { font-size: 22px; display: block; margin-bottom: 5px; }
+.act-label { font-size: 11px; color: var(--text-muted); }
+.act-btn.on .act-label { color: var(--purple-light); }
+
+/* MEALS */
+.meal-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--bg3); }
+.meal-row:last-child { border-bottom: none; }
+.meal-name { font-size: 14px; color: var(--text); }
+.meal-time { font-size: 10px; color: var(--text-faint); letter-spacing: 1px; margin-top: 2px; }
+.meal-check { width: 32px; height: 32px; border-radius: 10px; border: 1.5px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+.meal-check.on { background: var(--purple); border-color: var(--purple); }
+
+/* CHECKUP */
+.checkup-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--bg3); flex-shrink: 0; }
+.chk-progress { height: 3px; background: var(--bg3); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+.chk-progress-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--purple-light)); border-radius: 2px; transition: width 0.4s ease; }
+.checkup-body { flex: 1; overflow-y: auto; padding: 32px 20px 40px; display: flex; flex-direction: column; }
+
+.step { display: none; flex-direction: column; animation: fadeUp 0.35s ease; }
+.step.active { display: flex; }
+.step-q { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; color: var(--text); margin-bottom: 8px; line-height: 1.3; }
+.step-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+
+.opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 32px; }
+.opt-btn { background: var(--bg2); border: 1.5px solid var(--border); border-radius: 14px; padding: 17px 12px; text-align: center; cursor: pointer; font-family: 'Jost', sans-serif; font-size: 14px; color: var(--text); transition: all 0.18s; -webkit-tap-highlight-color: transparent; }
+.opt-btn:active { transform: scale(0.97); }
+.opt-btn.sel { background: var(--purple-dim); border-color: var(--purple); color: var(--purple-light); }
+.opt-btn.span2 { grid-column: span 2; }
+
+.mood-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 32px; }
+.mood-btn { background: var(--bg2); border: 1.5px solid var(--border); border-radius: 14px; padding: 16px 8px; text-align: center; cursor: pointer; transition: all 0.18s; -webkit-tap-highlight-color: transparent; }
+.mood-emoji { font-size: 26px; display: block; margin-bottom: 5px; }
+.mood-label { font-size: 11px; color: var(--text-muted); }
+.mood-btn.sel { background: var(--purple-dim); border-color: var(--purple); }
+.mood-btn.sel .mood-label { color: var(--purple-light); }
+
+.slider-val { text-align: center; font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 300; color: var(--purple-light); margin-bottom: 12px; }
+.slider-wrap { margin-bottom: 32px; }
+.slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-faint); margin-top: 10px; letter-spacing: 1px; }
+input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--bg3); outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--purple); cursor: pointer; box-shadow: 0 0 0 4px var(--purple-dim); }
+
+.step-textarea { background: var(--bg2); border: 1px solid #2d2550; border-radius: 14px; padding: 14px 16px; color: var(--text); font-size: 14px; font-family: 'Jost', sans-serif; outline: none; resize: none; width: 100%; min-height: 100px; margin-bottom: 24px; line-height: 1.6; }
+.step-textarea:focus { border-color: var(--purple); }
+
+.step-nav { display: flex; gap: 10px; margin-top: auto; padding-top: 16px; }
+.nav-btn { flex: 1; padding: 15px; border-radius: 14px; font-family: 'Jost', sans-serif; font-size: 14px; letter-spacing: 1px; cursor: pointer; transition: opacity 0.2s; -webkit-tap-highlight-color: transparent; }
+.nav-back { background: none; border: 1px solid var(--border); color: var(--text-muted); }
+.nav-next { background: linear-gradient(135deg, var(--purple), #5b21b6); border: none; color: white; }
+.nav-btn:active { opacity: 0.75; }
+
+/* RESULT */
+.result-body { flex: 1; overflow-y: auto; padding: 24px 20px 60px; }
+.result-glass-wrap { display: flex; justify-content: center; margin-bottom: 24px; }
+.result-zone { font-size: 14px; color: var(--text-muted); text-align: center; margin-bottom: 28px; }
+
+.tool-btn { display: flex; align-items: center; justify-content: space-between; background: var(--bg2); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+.tool-btn.applied { border-color: var(--green); background: rgba(16,185,129,0.07); }
+.tool-left { display: flex; align-items: center; gap: 12px; }
+.tool-icon { font-size: 20px; }
+.tool-name { font-size: 14px; color: var(--text); }
+.tool-effect { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.tool-badge { font-size: 12px; color: var(--green); background: rgba(16,185,129,0.12); border-radius: 8px; padding: 3px 9px; flex-shrink: 0; }
+
+.done-btn { width: 100%; background: linear-gradient(135deg, var(--purple), #5b21b6); border: none; border-radius: 16px; padding: 18px; color: white; font-size: 14px; font-family: 'Jost', sans-serif; letter-spacing: 2px; cursor: pointer; margin-top: 20px; transition: opacity 0.2s; }
+.done-btn:active { opacity: 0.8; }
+
+/* WORK REMINDER */
+.work-reminder { display:flex; align-items:center; gap:12px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
+.work-reminder-icon { font-size:22px; flex-shrink:0; }
+.work-reminder-text { flex:1; }
+.work-reminder-title { font-size:13px; color:var(--text); font-weight:500; }
+.work-reminder-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+input[type=checkbox].work-check { width:22px; height:22px; cursor:pointer; accent-color:var(--purple); flex-shrink:0; }
+
+/* TOOL SPECIAL (finish work nudge) */
+.tool-btn.tool-special { border-color:rgba(245,158,11,0.35); background:rgba(245,158,11,0.07); cursor:default; }
+.tool-btn.tool-special .tool-name { color:var(--gold); }
+
+/* SOS EMOTION BANNER */
+.sos-banner { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 16px; padding: 20px; margin-bottom: 20px; text-align: center; }
+.sos-banner-lbl { font-size: 9px; letter-spacing: 3px; color: #ef4444; margin-bottom: 10px; text-transform: uppercase; }
+.sos-banner-emotion { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 300; color: var(--text); margin-bottom: 6px; }
+.sos-banner-sub { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+/* INTENSITY GRID */
+.intensity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 32px; }
+
+/* PRACTICES */
+.practice-row { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--bg3); }
+.practice-row:last-child { border-bottom:none; }
+.practice-dot { width:28px; height:28px; border-radius:8px; border:1.5px solid var(--border); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--green); flex-shrink:0; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+.practice-dot.done { background:rgba(16,185,129,0.12); border-color:var(--green); }
+.practice-info { flex:1; }
+.practice-name { font-size:14px; color:var(--text); transition:color 0.2s; }
+.practice-name.done { text-decoration:line-through; color:var(--text-muted); }
+.practice-meta { font-size:10px; color:var(--text-faint); margin-top:2px; letter-spacing:0.5px; }
+
+/* SUMMARY */
+.summary-section { margin-bottom:28px; }
+.summary-title { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; color:var(--purple-light); margin-bottom:10px; }
+.summary-row { display:flex; gap:8px; font-size:13px; padding:4px 0; }
+.summary-label { color:var(--text-muted); min-width:110px; flex-shrink:0; }
+.summary-val { color:var(--text); }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d2550; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="screen">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px;">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:42px;letter-spacing:10px;color:var(--purple-light);text-align:center;margin-bottom:6px;font-weight:300;">NOVA</div>
+    <div style="text-align:center;font-size:13px;color:var(--text-muted);font-style:italic;margin-bottom:44px;font-family:'Cormorant Garamond',serif;">журнал</div>
+    <button class="btn-primary" onclick="signInWithGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px;letter-spacing:1px;">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.5 35.5 26.9 36 24 36c-5.2 0-9.7-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.5-4.6 5.9l6.2 5.2C40.8 35.8 44 30.3 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+      Войти через Google
+    </button>
+    <div style="display:flex;align-items:center;gap:12px;margin:20px 0;">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:11px;color:var(--text-faint)">или</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <label class="field-label">Email — получить ссылку</label>
+    <input class="field-input" id="auth-email" type="email" placeholder="твой@email.com" onkeydown="if(event.key==='Enter')sendMagicLink()">
+    <button class="btn-primary" id="auth-btn" onclick="sendMagicLink()" style="background:none;border:1px solid var(--purple);color:var(--purple-light);">ВОЙТИ ПО ССЫЛКЕ →</button>
+    <div id="auth-status" style="text-align:center;font-size:13px;margin-top:16px;color:var(--text-muted);line-height:1.7;"></div>
+  </div>
+</div>
+
+<!-- HOME SCREEN -->
+<div id="home-screen" class="screen">
+  <div class="top-bar">
+    <div>
+      <div class="logo-small">ЖУРНАЛ</div>
+      <div class="date-display" id="home-date"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button onclick="openSummary()" style="font-size:18px;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent;" title="Итоги дня">📋</button>
+      <a href="index.html" class="back-link">← NOVA</a>
+    </div>
+  </div>
+  <div class="scroll-area">
+
+    <div class="glass-wrapper">
+      <div class="glass-svg-wrap" style="width:180px;height:180px;">
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          <circle cx="90" cy="90" r="76" fill="none" stroke="#1a1530" stroke-width="10"/>
+          <circle id="glass-arc" cx="90" cy="90" r="76" fill="none" stroke="#10b981" stroke-width="10"
+            stroke-dasharray="0 478" stroke-linecap="round" transform="rotate(-90 90 90)"/>
+        </svg>
+        <div class="glass-center-text">
+          <div class="glass-pct" id="glass-pct" style="color:#10b981;">0%</div>
+          <div class="glass-lbl">СТАКАН</div>
+        </div>
+      </div>
+      <div class="glass-zone" id="glass-zone">Проведи утренний чекап</div>
+    </div>
+
+    <div id="work-reminder" class="work-reminder" style="display:none;">
+      <span class="work-reminder-icon">🎯</span>
+      <div class="work-reminder-text">
+        <div class="work-reminder-title">Сначала заверши работу</div>
+        <div class="work-reminder-sub">Отметь, когда закончишь</div>
+      </div>
+      <input type="checkbox" class="work-check" onchange="dismissWorkReminder()">
+    </div>
+
+    <div class="section-label" id="practices-lbl" style="display:none;margin-top:0;">ПРАКТИКИ</div>
+    <div class="card" id="practices-card" style="display:none;margin-bottom:20px;"></div>
+
+    <div class="section-label" style="margin-top:0;">УТРЕННИЕ ЧЕКАПЫ</div>
+    <button class="checkup-btn" id="checkup-btn" onclick="startCheckup()">☀️ &nbsp; УТРЕННИЙ ЧЕКАП</button>
+    <button class="checkup-btn" id="checkup2-btn" onclick="startCheckup2()">☕ &nbsp; 07:00 ЧЕКАП</button>
+
+    <div class="section-label">ДНЕВНЫЕ ЧЕКАПЫ</div>
+    <button class="checkup-btn" id="checkup3-btn" onclick="startCheckup3()">🌞 &nbsp; 10:00 ЧЕКАП</button>
+    <button class="checkup-btn" id="checkup4-btn" onclick="startCheckup4()">🌤 &nbsp; 13:00 ЧЕКАП</button>
+    <button class="checkup-btn" id="checkup5-btn" onclick="startCheckup5()">🌇 &nbsp; 19:30 ЧЕКАП</button>
+
+    <div class="section-label">ПОДДЕРЖКА</div>
+    <button class="sos-btn" onclick="startSos()">🆘 &nbsp; SOS — нужна помощь</button>
+
+    <div class="section-label">ВОДА</div>
+    <div class="card">
+      <div class="water-row">
+        <div>
+          <div class="water-num" id="water-num">0</div>
+          <div class="water-goal-txt">/ 8 стаканов</div>
+        </div>
+        <div class="water-btns">
+          <button class="water-btn" onclick="changeWater(-1)">−</button>
+          <button class="water-btn" onclick="changeWater(1)">+</button>
+        </div>
+      </div>
+      <div class="water-dots" id="water-dots"></div>
+    </div>
+
+    <div class="section-label">АКТИВНОСТЬ</div>
+    <div class="card">
+      <div class="act-grid">
+        <div class="act-btn" id="act-exercise" onclick="toggleAct('exercise')">
+          <span class="act-emoji">🧘</span><span class="act-label">Зарядка</span>
+        </div>
+        <div class="act-btn" id="act-workout" onclick="toggleAct('workout')">
+          <span class="act-emoji">💪</span><span class="act-label">Тренировка</span>
+        </div>
+        <div class="act-btn" id="act-walk" onclick="toggleAct('walk')">
+          <span class="act-emoji">🚶</span><span class="act-label">Прогулка</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">ЕДА</div>
+    <div class="card">
+      <div class="meal-row">
+        <div><div class="meal-name">Завтрак</div><div class="meal-time">06:00 — 08:00</div></div>
+        <div class="meal-check" id="meal-breakfast" onclick="toggleMeal('breakfast')"></div>
+      </div>
+      <div class="meal-row">
+        <div><div class="meal-name">Обед</div><div class="meal-time">12:00 — 14:00</div></div>
+        <div class="meal-check" id="meal-lunch" onclick="toggleMeal('lunch')"></div>
+      </div>
+      <div class="meal-row">
+        <div><div class="meal-name">Ужин</div><div class="meal-time">18:00 — 20:00</div></div>
+        <div class="meal-check" id="meal-dinner" onclick="toggleMeal('dinner')"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CHECKUP 1 SCREEN -->
+<div id="checkup-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="step-counter">1 / 7</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="chk-fill" style="width:14%"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="step-1">
+      <div class="step-q">День цикла</div>
+      <div class="step-hint">Выбери текущий диапазон</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick('cycle','1-4',this)">1 — 4</div>
+        <div class="opt-btn" onclick="pick('cycle','5-10',this)">5 — 10</div>
+        <div class="opt-btn" onclick="pick('cycle','11-20',this)">11 — 20</div>
+        <div class="opt-btn" onclick="pick('cycle','21-26',this)">21 — 26</div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="next()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="step-2">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Как ощущения прямо сейчас?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" onclick="pick('belly','discomfort',this)">😬 Дискомфорт</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="step-3">
+      <div class="step-q">Сон</div>
+      <div class="step-hint">Сколько часов спала прошлой ночью?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick('sleep','lt7',this)">Менее 7ч</div>
+        <div class="opt-btn" onclick="pick('sleep','7-8',this)">7 — 8ч</div>
+        <div class="opt-btn span2" onclick="pick('sleep','8plus',this)">8+ ч</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="step-4">
+      <div class="step-q">Голод</div>
+      <div class="step-hint">Насколько голодна прямо сейчас?</div>
+      <div class="slider-val" id="hunger-val">5</div>
+      <div class="slider-wrap">
+        <input type="range" min="1" max="10" value="5" id="hunger-slider" oninput="onSlider()">
+        <div class="slider-labels"><span>1 — сыта</span><span>10 — очень голодна</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="nextHunger()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="step-5">
+      <div class="step-q">Тяжёлый день?</div>
+      <div class="step-hint">Много задач, напряжение, дедлайны?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick('hardDay','yes',this)">😮‍💨 Да</div>
+        <div class="opt-btn" onclick="pick('hardDay','no',this)">😌 Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="step-6">
+      <div class="step-q">Мини-цели на сегодня</div>
+      <div class="step-hint">1–3 конкретных шага, которые точно сделаешь</div>
+      <textarea class="step-textarea" id="goals-input" placeholder="— Отправить резюме&#10;— Пройти 30 мин&#10;— Нарисовать эскиз"></textarea>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="step-7">
+      <div class="step-q">Настроение</div>
+      <div class="step-hint">Что ближе всего прямо сейчас?</div>
+      <div class="mood-grid">
+        <div class="mood-btn" onclick="pick('mood','anger',this)"><span class="mood-emoji">😤</span><span class="mood-label">Гнев</span></div>
+        <div class="mood-btn" onclick="pick('mood','fear',this)"><span class="mood-emoji">😨</span><span class="mood-label">Страх</span></div>
+        <div class="mood-btn" onclick="pick('mood','sadness',this)"><span class="mood-emoji">😢</span><span class="mood-label">Грусть</span></div>
+        <div class="mood-btn" onclick="pick('mood','joy',this)"><span class="mood-emoji">😊</span><span class="mood-label">Радость</span></div>
+        <div class="mood-btn" onclick="pick('mood','love',this)"><span class="mood-emoji">🥰</span><span class="mood-label">Любовь</span></div>
+        <div class="mood-btn" onclick="pick('mood','neutral',this)"><span class="mood-emoji">😐</span><span class="mood-label">Нейтрально</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finish()">ГОТОВО ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKUP 2 SCREEN -->
+<div id="checkup2-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="s2-counter">1 / 7</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="s2-fill" style="width:14%"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="s2-1">
+      <div class="step-q">Зарядка была?</div>
+      <div class="step-hint">Любая физическая активность утром</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('exercise','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick2('exercise','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="next2()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="s2-2">
+      <div class="step-q">Воду пила?</div>
+      <div class="step-hint">Стакан воды с утра</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('water','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick2('water','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next2()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s2-3">
+      <div class="step-q">Туалет?</div>
+      <div class="step-hint">Регулярность утром</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('toilet','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick2('toilet','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next2()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s2-4">
+      <div class="step-q">Завтрак в окне 6–8?</div>
+      <div class="step-hint">Поела между 06:00 и 08:00?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('breakfast','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick2('breakfast','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next2()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s2-5">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Как ощущения прямо сейчас?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" onclick="pick2('belly','discomfort',this)">😬 Дискомфорт</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next2()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s2-6">
+      <div class="step-q">Работа идёт?</div>
+      <div class="step-hint">Есть фокус и продуктивность?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick2('work','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick2('work','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next2()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s2-7">
+      <div class="step-q">Эмоция</div>
+      <div class="step-hint">Что ближе всего сейчас?</div>
+      <div class="mood-grid">
+        <div class="mood-btn" onclick="pick2('mood','anger',this)"><span class="mood-emoji">😤</span><span class="mood-label">Гнев</span></div>
+        <div class="mood-btn" onclick="pick2('mood','fear',this)"><span class="mood-emoji">😨</span><span class="mood-label">Страх</span></div>
+        <div class="mood-btn" onclick="pick2('mood','sadness',this)"><span class="mood-emoji">😢</span><span class="mood-label">Грусть</span></div>
+        <div class="mood-btn" onclick="pick2('mood','joy',this)"><span class="mood-emoji">😊</span><span class="mood-label">Радость</span></div>
+        <div class="mood-btn" onclick="pick2('mood','love',this)"><span class="mood-emoji">🥰</span><span class="mood-label">Любовь</span></div>
+        <div class="mood-btn" onclick="pick2('mood','neutral',this)"><span class="mood-emoji">😐</span><span class="mood-label">Нейтрально</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev2()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finish2()">ГОТОВО ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKUP 3 SCREEN (10:00, 4 шага) -->
+<div id="checkup3-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="s3-counter">1 / 4</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="s3-fill" style="width:25%"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="s3-1">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Как ощущения прямо сейчас?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick3('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" onclick="pick3('belly','discomfort',this)">😬 Дискомфорт</div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="next3()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="s3-2">
+      <div class="step-q">Голод</div>
+      <div class="step-hint">Насколько голодна прямо сейчас?</div>
+      <div class="slider-val" id="s3-hunger-val">5</div>
+      <div class="slider-wrap">
+        <input type="range" min="1" max="10" value="5" id="s3-hunger-slider" oninput="document.getElementById('s3-hunger-val').textContent=this.value">
+        <div class="slider-labels"><span>1 — сыта</span><span>10 — очень голодна</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev3()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="ans3.hunger=+document.getElementById('s3-hunger-slider').value;next3()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s3-3">
+      <div class="step-q">Работа идёт?</div>
+      <div class="step-hint">Есть фокус, не отвлекаешься?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick3('work','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick3('work','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev3()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next3()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s3-4">
+      <div class="step-q">Эмоция</div>
+      <div class="step-hint">Что ближе всего сейчас?</div>
+      <div class="mood-grid">
+        <div class="mood-btn" onclick="pick3('mood','anger',this)"><span class="mood-emoji">😤</span><span class="mood-label">Гнев</span></div>
+        <div class="mood-btn" onclick="pick3('mood','fear',this)"><span class="mood-emoji">😨</span><span class="mood-label">Страх</span></div>
+        <div class="mood-btn" onclick="pick3('mood','sadness',this)"><span class="mood-emoji">😢</span><span class="mood-label">Грусть</span></div>
+        <div class="mood-btn" onclick="pick3('mood','joy',this)"><span class="mood-emoji">😊</span><span class="mood-label">Радость</span></div>
+        <div class="mood-btn" onclick="pick3('mood','love',this)"><span class="mood-emoji">🥰</span><span class="mood-label">Любовь</span></div>
+        <div class="mood-btn" onclick="pick3('mood','neutral',this)"><span class="mood-emoji">😐</span><span class="mood-label">Нейтрально</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev3()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finish3()">ГОТОВО ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKUP 4 SCREEN (13:00, 7 шагов) -->
+<div id="checkup4-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="s4-counter">1 / 7</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="s4-fill" style="width:14%"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="s4-1">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Как ощущения прямо сейчас?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick4('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" onclick="pick4('belly','discomfort',this)">😬 Дискомфорт</div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="next4()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="s4-2">
+      <div class="step-q">Обед в окне 12–14?</div>
+      <div class="step-hint">Поела в правильное время?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick4('lunch','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick4('lunch','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next4()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s4-3">
+      <div class="step-q">Голод</div>
+      <div class="step-hint">Насколько голодна прямо сейчас?</div>
+      <div class="slider-val" id="s4-hunger-val">5</div>
+      <div class="slider-wrap">
+        <input type="range" min="1" max="10" value="5" id="s4-hunger-slider" oninput="document.getElementById('s4-hunger-val').textContent=this.value">
+        <div class="slider-labels"><span>1 — сыта</span><span>10 — очень голодна</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="ans4.hunger=+document.getElementById('s4-hunger-slider').value;next4()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s4-4">
+      <div class="step-q">Вода</div>
+      <div class="step-hint">Обнови счётчик — сколько выпила всего за сегодня</div>
+      <div class="inline-water-counter">
+        <button class="water-btn" onclick="inlineWater(-1)">−</button>
+        <div class="inline-water-display">
+          <div class="inline-water-num inline-water-val">0</div>
+          <div class="inline-water-sub">/ 8 стаканов</div>
+        </div>
+        <button class="water-btn" onclick="inlineWater(1)">+</button>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next4()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s4-5">
+      <div class="step-q">Задачи выполнены?</div>
+      <div class="step-hint">Удалось сделать запланированное?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick4('work_done','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick4('work_done','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next4()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s4-6">
+      <div class="step-q">Тренировка?</div>
+      <div class="step-hint">Любая физическая активность сегодня</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick4('workout','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick4('workout','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next4()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s4-7">
+      <div class="step-q">Эмоция</div>
+      <div class="step-hint">Что ближе всего сейчас?</div>
+      <div class="mood-grid">
+        <div class="mood-btn" onclick="pick4('mood','anger',this)"><span class="mood-emoji">😤</span><span class="mood-label">Гнев</span></div>
+        <div class="mood-btn" onclick="pick4('mood','fear',this)"><span class="mood-emoji">😨</span><span class="mood-label">Страх</span></div>
+        <div class="mood-btn" onclick="pick4('mood','sadness',this)"><span class="mood-emoji">😢</span><span class="mood-label">Грусть</span></div>
+        <div class="mood-btn" onclick="pick4('mood','joy',this)"><span class="mood-emoji">😊</span><span class="mood-label">Радость</span></div>
+        <div class="mood-btn" onclick="pick4('mood','love',this)"><span class="mood-emoji">🥰</span><span class="mood-label">Любовь</span></div>
+        <div class="mood-btn" onclick="pick4('mood','neutral',this)"><span class="mood-emoji">😐</span><span class="mood-label">Нейтрально</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev4()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finish4()">ГОТОВО ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKUP 5 SCREEN (19:30, 8 шагов) -->
+<div id="checkup5-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="s5-counter">1 / 8</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="s5-fill" style="width:12%"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="s5-1">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Как ощущения вечером?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick5('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" onclick="pick5('belly','discomfort',this)">😬 Дискомфорт</div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="next5()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="s5-2">
+      <div class="step-q">Ужин в окне 18–20?</div>
+      <div class="step-hint">Поела в вечернее окно?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick5('dinner','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick5('dinner','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-3">
+      <div class="step-q">Вода</div>
+      <div class="step-hint">Обнови итоговый счётчик за день</div>
+      <div class="inline-water-counter">
+        <button class="water-btn" onclick="inlineWater(-1)">−</button>
+        <div class="inline-water-display">
+          <div class="inline-water-num inline-water-val">0</div>
+          <div class="inline-water-sub">/ 8 стаканов</div>
+        </div>
+        <button class="water-btn" onclick="inlineWater(1)">+</button>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-4">
+      <div class="step-q">МФР или стретч?</div>
+      <div class="step-hint">Любая работа с телом вечером</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick5('mfr','yes',this)">✅ Да</div>
+        <div class="opt-btn" onclick="pick5('mfr','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-5">
+      <div class="step-q">Что удалось?</div>
+      <div class="step-hint">Запиши то, чем гордишься сегодня</div>
+      <textarea class="step-textarea" id="s5-achieved" placeholder="Сегодня я сделала..."></textarea>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-6">
+      <div class="step-q">Что не вышло?</div>
+      <div class="step-hint">Без самокритики — просто факт</div>
+      <textarea class="step-textarea" id="s5-failed" placeholder="Не получилось..."></textarea>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-7">
+      <div class="step-q">Цели на завтра</div>
+      <div class="step-hint">1–3 конкретных шага</div>
+      <textarea class="step-textarea" id="s5-goals" placeholder="— "></textarea>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="next5()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="s5-8">
+      <div class="step-q">Сон планируешь?</div>
+      <div class="step-hint">Ляжешь в этот раз вовремя?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" onclick="pick5('sleep','yes',this)">😴 Да, лягу</div>
+        <div class="opt-btn" onclick="pick5('sleep','no',this)">😬 Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prev5()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finish5()">ГОТОВО ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SOS SCREEN (5 шагов) -->
+<div id="sos-screen" class="screen">
+  <div class="checkup-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-link" onclick="goHome()">← Назад</button>
+      <span style="font-size:11px;color:var(--text-faint);" id="sos-counter">1 / 5</span>
+    </div>
+    <div class="chk-progress"><div class="chk-progress-fill" id="sos-fill" style="width:20%;background:linear-gradient(90deg,#dc2626,#f97316)"></div></div>
+  </div>
+  <div class="checkup-body">
+    <div class="step active" id="sos-1">
+      <div class="step-q">Что случилось?</div>
+      <div class="step-hint">Выбери ближайшее к ситуации</div>
+      <div class="mood-grid" style="grid-template-columns:1fr 1fr;margin-bottom:32px;">
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','conflict',this)"><span class="mood-emoji">🔥</span><span class="mood-label">Конфликт</span></div>
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','overload',this)"><span class="mood-emoji">😵</span><span class="mood-label">Перегруз</span></div>
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','anxiety',this)"><span class="mood-emoji">😰</span><span class="mood-label">Тревога</span></div>
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','loneliness',this)"><span class="mood-emoji">🌑</span><span class="mood-label">Одиночество</span></div>
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','failure',this)"><span class="mood-emoji">💔</span><span class="mood-label">Провал</span></div>
+        <div class="mood-btn" data-group="sos-trigger" onclick="pickSos('trigger','other',this)"><span class="mood-emoji">❓</span><span class="mood-label">Другое</span></div>
+      </div>
+      <div class="step-nav"><button class="nav-btn nav-next" style="flex:1" onclick="nextSos()">ДАЛЕЕ →</button></div>
+    </div>
+    <div class="step" id="sos-2">
+      <div class="step-q">Выпей воды</div>
+      <div class="step-hint">Стакан воды прямо сейчас — это важно</div>
+      <div class="inline-water-counter">
+        <button class="water-btn" onclick="inlineWater(-1)">−</button>
+        <div class="inline-water-display">
+          <div class="inline-water-num inline-water-val">0</div>
+          <div class="inline-water-sub">/ 8 стаканов</div>
+        </div>
+        <button class="water-btn" onclick="inlineWater(1)">+</button>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prevSos()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="nextSos()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="sos-3">
+      <div class="step-q">Живот</div>
+      <div class="step-hint">Есть ли телесный дискомфорт?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" data-group="sos-belly" onclick="pickSos('belly','ok',this)">👍 Норм</div>
+        <div class="opt-btn" data-group="sos-belly" onclick="pickSos('belly','discomfort',this)">😬 Зажат</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prevSos()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="nextSos()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="sos-4">
+      <div class="step-q">Эмоция</div>
+      <div class="step-hint">Что и насколько сильно?</div>
+      <div class="mood-grid" style="margin-bottom:16px;">
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','anger',this)"><span class="mood-emoji">😤</span><span class="mood-label">Гнев</span></div>
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','fear',this)"><span class="mood-emoji">😨</span><span class="mood-label">Страх</span></div>
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','sadness',this)"><span class="mood-emoji">😢</span><span class="mood-label">Грусть</span></div>
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','shame',this)"><span class="mood-emoji">😳</span><span class="mood-label">Стыд</span></div>
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','anxiety',this)"><span class="mood-emoji">😬</span><span class="mood-label">Тревога</span></div>
+        <div class="mood-btn" data-group="sos-mood" onclick="pickSos('mood','other',this)"><span class="mood-emoji">💭</span><span class="mood-label">Другое</span></div>
+      </div>
+      <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);margin-bottom:12px;text-transform:uppercase;">Интенсивность</div>
+      <div class="intensity-grid" style="margin-bottom:32px;">
+        <div class="opt-btn" data-group="sos-intensity" onclick="pickSos('intensity','mild',this)">Мягко</div>
+        <div class="opt-btn" data-group="sos-intensity" onclick="pickSos('intensity','moderate',this)">Умеренно</div>
+        <div class="opt-btn" data-group="sos-intensity" onclick="pickSos('intensity','strong',this)">Сильно</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prevSos()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="nextSos()">ДАЛЕЕ →</button>
+      </div>
+    </div>
+    <div class="step" id="sos-5">
+      <div class="step-q">Активность?</div>
+      <div class="step-hint">Можешь встать и подвигаться прямо сейчас?</div>
+      <div class="opt-grid">
+        <div class="opt-btn" data-group="sos-activity" onclick="pickSos('activity','yes',this)">✅ Да</div>
+        <div class="opt-btn" data-group="sos-activity" onclick="pickSos('activity','no',this)">❌ Нет</div>
+      </div>
+      <div class="step-nav">
+        <button class="nav-btn nav-back" onclick="prevSos()">← Назад</button>
+        <button class="nav-btn nav-next" onclick="finishSos()">ИНСТРУМЕНТЫ →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen" class="screen">
+  <div class="top-bar">
+    <div>
+      <div class="logo-small">РЕЗУЛЬТАТ</div>
+      <div class="date-display" id="result-date"></div>
+    </div>
+  </div>
+  <div class="result-body">
+
+    <div id="sos-emotion-banner" class="sos-banner" style="display:none;">
+      <div class="sos-banner-lbl">Эмоция сейчас</div>
+      <div class="sos-banner-emotion" id="sos-emotion-label">—</div>
+      <div class="sos-banner-sub">Это нормально. Ты справишься.<br>Используй инструменты ниже.</div>
+    </div>
+
+    <div class="result-glass-wrap">
+      <div class="glass-svg-wrap" style="width:160px;height:160px;">
+        <svg width="160" height="160" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="68" fill="none" stroke="#1a1530" stroke-width="10"/>
+          <circle id="result-arc" cx="80" cy="80" r="68" fill="none" stroke="#10b981" stroke-width="10"
+            stroke-dasharray="0 427" stroke-linecap="round" transform="rotate(-90 80 80)"/>
+        </svg>
+        <div class="glass-center-text">
+          <div class="glass-pct" id="result-pct" style="color:#10b981;font-size:38px;">0%</div>
+          <div class="glass-lbl">СТАКАН</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-zone" id="result-zone"></div>
+
+    <div id="tools-section" style="display:none;">
+      <div class="section-label" style="margin-bottom:12px;">ИНСТРУМЕНТЫ</div>
+      <div id="tools-list"></div>
+    </div>
+
+    <button class="done-btn" onclick="saveAndDone()">СОХРАНИТЬ И В ЖУРНАЛ →</button>
+  </div>
+</div>
+
+<!-- SUMMARY SCREEN -->
+<div id="summary-screen" class="screen">
+  <div class="top-bar">
+    <div>
+      <div class="logo-small">ИТОГИ</div>
+      <div class="date-display" id="summary-date"></div>
+    </div>
+    <button class="back-link" onclick="goHome()">← Назад</button>
+  </div>
+  <div class="result-body" id="summary-body"></div>
+</div>
+
+<!-- DEBUG -->
+<div id="debug-panel" style="display:none;position:fixed;bottom:68px;right:16px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;z-index:200;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);margin-bottom:12px;text-transform:uppercase;">Отладка</div>
+  <button onclick="startCheckup();closeDebug()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left;-webkit-tap-highlight-color:transparent;">☀️ &nbsp;Утренний чекап</button>
+  <button onclick="startCheckup2();closeDebug()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left;-webkit-tap-highlight-color:transparent;">☕ &nbsp;07:00 чекап</button>
+  <button onclick="startCheckup3();closeDebug()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left;-webkit-tap-highlight-color:transparent;">🌞 &nbsp;10:00 чекап</button>
+  <button onclick="startCheckup4();closeDebug()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left;-webkit-tap-highlight-color:transparent;">🌤 &nbsp;13:00 чекап</button>
+  <button onclick="startCheckup5();closeDebug()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left;-webkit-tap-highlight-color:transparent;">🌇 &nbsp;19:30 чекап</button>
+  <button onclick="startSos();closeDebug()" style="width:100%;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);border-radius:10px;padding:10px 14px;color:#fca5a5;font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;">🆘 &nbsp;SOS</button>
+</div>
+<button id="debug-fab" onclick="toggleDebug()" style="display:none;position:fixed;bottom:16px;right:16px;width:40px;height:40px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);color:var(--text-faint);font-size:16px;cursor:pointer;z-index:201;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">🛠</button>
+
+</div><!-- #app -->
+<script>
+let sb = null, currentUser = null, activeCheckup = 1, todayData = null;
+let curStep = 1, curStep2 = 1, curStep3 = 1, curStep4 = 1, curStep5 = 1, curStepSos = 1;
+
+const ans    = { cycle:null, belly:null, sleep:null, hunger:5, hardDay:null, miniGoals:'', mood:null };
+const ans2   = { exercise:null, water:null, toilet:null, breakfast:null, belly:null, work:null, mood:null };
+const ans3   = { belly:null, hunger:5, work:null, mood:null };
+const ans4   = { belly:null, lunch:null, hunger:5, work_done:null, workout:null, mood:null };
+const ans5   = { belly:null, dinner:null, mfr:null, achieved:'', failed:'', goals_tomorrow:'', sleep:null };
+const ansSos = { trigger:null, belly:null, mood:null, intensity:null, activity:null };
+const st     = {
+  glass:0, baseGlass:0, water:0,
+  done:false, done2:false, done3:false, done4:false, done5:false,
+  workInProgress:false, workReminderDismissed:false, workConfirmedDone:false,
+  practices:[], cupHistory:[],
+  act:{ exercise:false, workout:false, walk:false },
+  meals:{ breakfast:false, lunch:false, dinner:false },
+  tools:[]
+};
+
+// ── INIT ──────────────────────────────────────────────────
+async function initApp() {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') showScreen('auth'); });
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { currentUser = session.user; await loadToday(); showScreen('home'); renderHome(); }
+  else showScreen('auth');
+}
+
+// ── AUTH ──────────────────────────────────────────────────
+async function signInWithGoogle() {
+  await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.origin + window.location.pathname } });
+}
+async function sendMagicLink() {
+  const email = document.getElementById('auth-email').value.trim();
+  const status = document.getElementById('auth-status');
+  const btn = document.getElementById('auth-btn');
+  if (!email) { status.textContent = 'Введи email'; return; }
+  btn.disabled = true; btn.textContent = 'Отправляю...';
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.href } });
+  if (error) {
+    status.innerHTML = `<span style="color:#ef4444">Ошибка: ${error.message}</span>`;
+    btn.disabled = false; btn.textContent = 'ВОЙТИ ПО ССЫЛКЕ →';
+  } else {
+    status.innerHTML = `✉️ Ссылка отправлена на <strong style="color:var(--purple-light)">${email}</strong><br>Открой письмо и вернись.`;
+  }
+}
+
+// ── DATA ──────────────────────────────────────────────────
+async function loadToday() {
+  const { data } = await sb.from('daily_logs').select('*').eq('user_id', currentUser.id).eq('date', todayKey()).maybeSingle();
+  if (!data) return;
+  todayData = data;
+  st.glass     = data.cup_score || 0;
+  st.baseGlass = data.cup_score || 0;
+  st.water     = data.water     || 0;
+  st.done      = !!data.checkup1_done;
+  st.done2     = !!data.checkup2_done;
+  st.done3     = !!data.checkup3_done;
+  st.done4     = !!data.checkup4_done;
+  st.done5     = !!data.checkup5_done;
+  if (data.checkup4_done && data.checkup4) {
+    st.workInProgress    = data.checkup4.work_done === 'no';
+    st.workConfirmedDone = data.checkup4.work_done === 'yes';
+  } else if (data.checkup3_done && data.checkup3) {
+    st.workInProgress    = data.checkup3.work === 'yes';
+    st.workConfirmedDone = data.checkup3.work === 'no';
+  } else if (data.checkup2_done && data.checkup2) {
+    st.workInProgress    = data.checkup2.work === 'yes';
+    st.workConfirmedDone = data.checkup2.work === 'no';
+  }
+  st.act        = data.activity    || st.act;
+  st.meals      = data.meals       || st.meals;
+  st.tools      = data.tools       || [];
+  st.practices  = data.practices   || [];
+  st.cupHistory = data.cup_history || [];
+}
+
+async function saveAll() {
+  if (!currentUser) return;
+  try {
+    await sb.from('daily_logs').upsert({
+      user_id:      currentUser.id,
+      date:         todayKey(),
+      cycle_phase:  ans.cycle,
+      belly:        ans.belly,
+      sleep:        ans.sleep,
+      hunger:       ans.hunger,
+      hard_day:     ans.hardDay === 'yes',
+      mini_goals:   ans.miniGoals,
+      mood:         ans.mood,
+      cup_score:    st.glass,
+      water:        st.water,
+      activity:     st.act,
+      meals:        st.meals,
+      tools:        st.tools,
+      practices:    st.practices,
+      cup_history:  st.cupHistory,
+      checkup1_done: true,
+    }, { onConflict: 'user_id,date' });
+  } catch(e) {}
+}
+
+async function saveCheckupN(n, data) {
+  if (!currentUser) return;
+  try {
+    await sb.from('daily_logs').upsert({
+      user_id:   currentUser.id,
+      date:      todayKey(),
+      cup_score: st.glass,
+      water:     st.water,
+      activity:  st.act,
+      meals:     st.meals,
+      tools:       st.tools,
+      practices:   st.practices,
+      cup_history: st.cupHistory,
+      [`checkup${n}_done`]: true,
+      [`checkup${n}`]:      data,
+    }, { onConflict: 'user_id,date' });
+  } catch(e) {}
+}
+
+async function savePartial() {
+  if (!currentUser) return;
+  try {
+    await sb.from('daily_logs').upsert({
+      user_id:   currentUser.id,
+      date:      todayKey(),
+      cup_score: st.glass,
+      water:       st.water,
+      activity:    st.act,
+      meals:       st.meals,
+      tools:       st.tools,
+      practices:   st.practices,
+      cup_history: st.cupHistory,
+    }, { onConflict: 'user_id,date' });
+  } catch(e) {}
+}
+
+// ── SCREENS ───────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name + '-screen').classList.add('active');
+  const fab = document.getElementById('debug-fab');
+  if (fab) fab.style.display = name === 'home' ? 'flex' : 'none';
+}
+function goHome() { closeDebug(); showScreen('home'); renderHome(); }
+
+// ── HOME ──────────────────────────────────────────────────
+function renderHome() {
+  const now = new Date();
+  const days = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+  const mo   = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  document.getElementById('home-date').textContent = `${days[now.getDay()]}, ${now.getDate()} ${mo[now.getMonth()]}`;
+
+  setArc('glass-arc', 'glass-pct', st.glass, 76, 478);
+  const anyDone = st.done || st.done2 || st.done3 || st.done4 || st.done5;
+  document.getElementById('glass-zone').textContent = anyDone ? zoneText(st.glass) : 'Проведи утренний чекап';
+
+  renderCheckupBtn('checkup-btn',  st.done,  startCheckup,  '☀️ &nbsp; УТРЕННИЙ ЧЕКАП',  '✓ Утренний чекап');
+  renderCheckupBtn('checkup2-btn', st.done2, startCheckup2, '☕ &nbsp; 07:00 ЧЕКАП',       '✓ 07:00 чекап');
+  renderCheckupBtn('checkup3-btn', st.done3, startCheckup3, '🌞 &nbsp; 10:00 ЧЕКАП',       '✓ 10:00 чекап');
+  renderCheckupBtn('checkup4-btn', st.done4, startCheckup4, '🌤 &nbsp; 13:00 ЧЕКАП',       '✓ 13:00 чекап');
+  renderCheckupBtn('checkup5-btn', st.done5, startCheckup5, '🌇 &nbsp; 19:30 ЧЕКАП',       '✓ 19:30 чекап');
+
+  const reminder = document.getElementById('work-reminder');
+  if (reminder) reminder.style.display = (st.workInProgress && !st.workReminderDismissed) ? 'flex' : 'none';
+
+  renderPractices(); renderWater(); renderAct(); renderMeals();
+}
+
+function renderCheckupBtn(id, done, fn, activeLabel, doneLabel) {
+  const btn = document.getElementById(id);
+  if (done) {
+    btn.className = 'checkup-btn done'; btn.innerHTML = doneLabel; btn.onclick = null;
+  } else {
+    btn.className = 'checkup-btn'; btn.innerHTML = activeLabel; btn.onclick = fn;
+  }
+}
+
+function zoneText(p) {
+  if (p <= 30) return '🟢 Зелёная зона — спокойно';
+  if (p <= 60) return '🟡 Жёлтая зона — умеренно';
+  if (p <= 80) return '🟠 Оранжевая зона — напряжённо';
+  return '🔴 Красная зона — высокая нагрузка';
+}
+function zoneColor(p) {
+  if (p <= 30) return '#10b981';
+  if (p <= 60) return '#f59e0b';
+  if (p <= 80) return '#f97316';
+  return '#ef4444';
+}
+function setArc(arcId, txtId, pct, r, circ) {
+  pct = Math.max(0, Math.min(100, pct));
+  const color = zoneColor(pct);
+  const fill  = (pct / 100) * circ;
+  const arc = document.getElementById(arcId);
+  const txt = document.getElementById(txtId);
+  if (arc) { arc.setAttribute('stroke-dasharray', `${fill} ${circ}`); arc.setAttribute('stroke', color); }
+  if (txt) { txt.textContent = Math.round(pct) + '%'; txt.style.color = color; }
+}
+
+// ── WATER ──────────────────────────────────────────────────
+function changeWater(d) { st.water = Math.max(0, Math.min(12, st.water + d)); renderWater(); savePartial(); }
+function inlineWater(d) {
+  st.water = Math.max(0, Math.min(12, st.water + d));
+  document.querySelectorAll('.inline-water-val').forEach(el => el.textContent = st.water);
+}
+function renderWater() {
+  document.getElementById('water-num').textContent = st.water;
+  const wrap = document.getElementById('water-dots');
+  wrap.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement('div');
+    d.className = 'wdot' + (i < st.water ? ' on' : '');
+    d.textContent = i < st.water ? '💧' : '';
+    wrap.appendChild(d);
+  }
+}
+
+// ── ACTIVITIES ─────────────────────────────────────────────
+function toggleAct(k) { st.act[k] = !st.act[k]; renderAct(); savePartial(); }
+function renderAct() {
+  ['exercise','workout','walk'].forEach(k => {
+    document.getElementById('act-' + k).classList.toggle('on', !!st.act[k]);
+  });
+}
+
+// ── MEALS ──────────────────────────────────────────────────
+function toggleMeal(k) { st.meals[k] = !st.meals[k]; renderMeals(); savePartial(); }
+function renderMeals() {
+  ['breakfast','lunch','dinner'].forEach(k => {
+    const el = document.getElementById('meal-' + k);
+    el.classList.toggle('on', !!st.meals[k]);
+    el.textContent = st.meals[k] ? '✓' : '';
+  });
+}
+
+// ── CHECKUP 1 ──────────────────────────────────────────────
+function startCheckup() {
+  Object.assign(ans, { cycle:null, belly:null, sleep:null, hunger:5, hardDay:null, miniGoals:'', mood:null });
+  document.querySelectorAll('#checkup-screen .opt-btn, #checkup-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('hunger-slider').value = 5;
+  document.getElementById('hunger-val').textContent = '5';
+  document.getElementById('goals-input').value = '';
+  activeCheckup = 1; showStep(1); showScreen('checkup');
+}
+function showStep(n) {
+  document.querySelectorAll('#checkup-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  document.getElementById('step-counter').textContent = `${n} / 7`;
+  document.getElementById('chk-fill').style.width = `${(n / 7) * 100}%`;
+  curStep = n;
+}
+function pick(field, val, el) {
+  el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); ans[field] = val;
+}
+function next()      { if (curStep < 7) showStep(curStep + 1); }
+function prev()      { if (curStep > 1) showStep(curStep - 1); }
+function nextHunger() { ans.hunger = parseInt(document.getElementById('hunger-slider').value); next(); }
+function onSlider()  { document.getElementById('hunger-val').textContent = document.getElementById('hunger-slider').value; }
+function calcGlass() {
+  let p = 0;
+  if (ans.cycle === '1-4' || ans.cycle === '21-26') p += 30;
+  else if (ans.cycle === '5-10') p -= 10;
+  if (ans.sleep === 'lt7')         p += 25;
+  else if (ans.sleep === '8plus')  p -= 10;
+  if (ans.belly === 'discomfort')  p += 30;
+  if (ans.hardDay === 'yes')       p += 15;
+  return Math.max(0, Math.min(100, p));
+}
+function addCupHistory(n) {
+  const time = new Date().toTimeString().slice(0,5);
+  // replace entry for this checkup if already exists
+  st.cupHistory = st.cupHistory.filter(h => h.n !== n);
+  st.cupHistory.push({ n, score: st.glass, time });
+}
+
+function finish() {
+  ans.miniGoals = document.getElementById('goals-input').value;
+  const g = calcGlass(); st.glass = g; st.baseGlass = g; st.done = true; st.tools = [];
+  addCupHistory(1);
+  showResult();
+}
+
+// ── CHECKUP 2 ──────────────────────────────────────────────
+function startCheckup2() {
+  Object.assign(ans2, { exercise:null, water:null, toilet:null, breakfast:null, belly:null, work:null, mood:null });
+  document.querySelectorAll('#checkup2-screen .opt-btn, #checkup2-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  activeCheckup = 2; showStep2(1); showScreen('checkup2');
+}
+function showStep2(n) {
+  document.querySelectorAll('#checkup2-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('s2-' + n).classList.add('active');
+  document.getElementById('s2-counter').textContent = `${n} / 7`;
+  document.getElementById('s2-fill').style.width = `${(n / 7) * 100}%`;
+  curStep2 = n;
+}
+function pick2(field, val, el) {
+  el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); ans2[field] = val;
+}
+function next2() { if (curStep2 < 7) showStep2(curStep2 + 1); }
+function prev2() { if (curStep2 > 1) showStep2(curStep2 - 1); }
+function calcGlass2() {
+  let delta = 10; // base accumulation
+  if (ans2.exercise  === 'yes')        delta -= 15;
+  if (ans2.water     === 'yes')        delta -= 10;
+  if (ans2.toilet    === 'yes')        delta -= 15;
+  if (ans2.breakfast === 'yes')        delta -= 20;
+  else if (ans2.breakfast === 'no')    delta += 20;
+  if (ans2.belly     === 'discomfort') delta += 10;
+  if (ans2.work      === 'yes')        delta += 10;
+  if (['anger','fear','sadness'].includes(ans2.mood)) delta += 10;
+  else if (['joy','love'].includes(ans2.mood))        delta -= 10;
+  return Math.max(0, Math.min(100, st.glass + delta));
+}
+function finish2() {
+  st.glass = calcGlass2(); st.baseGlass = st.glass; st.done2 = true; st.tools = [];
+  addCupHistory(2);
+  st.workInProgress = ans2.work === 'yes';
+  if (ans2.work === 'no') st.workConfirmedDone = true;
+  showResult();
+}
+
+// ── CHECKUP 3 ──────────────────────────────────────────────
+function startCheckup3() {
+  Object.assign(ans3, { belly:null, hunger:5, work:null, mood:null });
+  document.querySelectorAll('#checkup3-screen .opt-btn, #checkup3-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('s3-hunger-slider').value = 5;
+  document.getElementById('s3-hunger-val').textContent = '5';
+  activeCheckup = 3; showStep3(1); showScreen('checkup3');
+}
+function showStep3(n) {
+  document.querySelectorAll('#checkup3-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('s3-' + n).classList.add('active');
+  document.getElementById('s3-counter').textContent = `${n} / 4`;
+  document.getElementById('s3-fill').style.width = `${(n / 4) * 100}%`;
+  curStep3 = n;
+}
+function pick3(field, val, el) {
+  el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); ans3[field] = val;
+}
+function next3() {
+  // skip work question (step 3) if already confirmed done
+  const n = (curStep3 === 2 && st.workConfirmedDone) ? 4 : curStep3 + 1;
+  if (n <= 4) showStep3(n);
+}
+function prev3() {
+  const n = (curStep3 === 4 && st.workConfirmedDone) ? 2 : curStep3 - 1;
+  if (n >= 1) showStep3(n);
+}
+function calcGlass3() {
+  let delta = 10; // base accumulation
+  if (ans3.belly === 'discomfort') delta += 10;
+  if (ans3.work  === 'yes')        delta += 10;
+  if (['anger','fear','sadness'].includes(ans3.mood)) delta += 10;
+  else if (['joy','love'].includes(ans3.mood))        delta -= 10;
+  return Math.max(0, Math.min(100, st.glass + delta));
+}
+function finish3() {
+  st.glass = calcGlass3(); st.baseGlass = st.glass; st.done3 = true; st.tools = [];
+  addCupHistory(3);
+  st.workInProgress = ans3.work === 'yes';
+  if (ans3.work === 'no') st.workConfirmedDone = true;
+  showResult();
+}
+
+// ── CHECKUP 4 ──────────────────────────────────────────────
+function startCheckup4() {
+  Object.assign(ans4, { belly:null, lunch:null, hunger:5, work_done:null, workout:null, mood:null });
+  document.querySelectorAll('#checkup4-screen .opt-btn, #checkup4-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('s4-hunger-slider').value = 5;
+  document.getElementById('s4-hunger-val').textContent = '5';
+  activeCheckup = 4; showStep4(1); showScreen('checkup4');
+}
+function showStep4(n) {
+  document.querySelectorAll('#checkup4-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('s4-' + n).classList.add('active');
+  document.getElementById('s4-counter').textContent = `${n} / 7`;
+  document.getElementById('s4-fill').style.width = `${(n / 7) * 100}%`;
+  curStep4 = n;
+  if (n === 4) document.querySelectorAll('.inline-water-val').forEach(el => el.textContent = st.water);
+}
+function pick4(field, val, el) {
+  el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); ans4[field] = val;
+}
+function next4() {
+  // skip work_done question (step 5) if already confirmed done
+  const n = (curStep4 === 4 && st.workConfirmedDone) ? 6 : curStep4 + 1;
+  if (n <= 7) showStep4(n);
+}
+function prev4() {
+  const n = (curStep4 === 6 && st.workConfirmedDone) ? 4 : curStep4 - 1;
+  if (n >= 1) showStep4(n);
+}
+function calcGlass4() {
+  let delta = 10; // base accumulation
+  if (ans4.belly    === 'discomfort') delta += 20;
+  if (ans4.lunch    === 'yes')        delta -= 20;
+  else if (ans4.lunch === 'no')       delta += 20;
+  if (ans4.work_done === 'yes')       delta -= 10;
+  else if (ans4.work_done === 'no')   delta += 10;
+  if (ans4.workout  === 'yes')        delta -= 20;
+  if (['anger','fear','sadness'].includes(ans4.mood)) delta += 10;
+  else if (['joy','love'].includes(ans4.mood))        delta -= 10;
+  return Math.max(0, Math.min(100, st.glass + delta));
+}
+function finish4() {
+  st.glass = calcGlass4(); st.baseGlass = st.glass; st.done4 = true; st.tools = [];
+  addCupHistory(4);
+  st.workInProgress = ans4.work_done === 'no';
+  if (ans4.work_done === 'yes') st.workConfirmedDone = true;
+  showResult();
+}
+
+// ── CHECKUP 5 ──────────────────────────────────────────────
+function startCheckup5() {
+  Object.assign(ans5, { belly:null, dinner:null, mfr:null, achieved:'', failed:'', goals_tomorrow:'', sleep:null });
+  document.querySelectorAll('#checkup5-screen .opt-btn, #checkup5-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  ['s5-achieved','s5-failed','s5-goals'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  activeCheckup = 5; showStep5(1); showScreen('checkup5');
+}
+function showStep5(n) {
+  document.querySelectorAll('#checkup5-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('s5-' + n).classList.add('active');
+  document.getElementById('s5-counter').textContent = `${n} / 8`;
+  document.getElementById('s5-fill').style.width = `${(n / 8) * 100}%`;
+  curStep5 = n;
+  if (n === 3) document.querySelectorAll('.inline-water-val').forEach(el => el.textContent = st.water);
+}
+function pick5(field, val, el) {
+  el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); ans5[field] = val;
+}
+function next5() { if (curStep5 < 8) showStep5(curStep5 + 1); }
+function prev5() { if (curStep5 > 1) showStep5(curStep5 - 1); }
+function calcGlass5() {
+  let delta = 10; // base accumulation
+  if (ans5.belly  === 'discomfort') delta += 10;
+  if (ans5.dinner === 'yes')        delta -= 20;
+  else if (ans5.dinner === 'no')    delta += 20;
+  if (ans5.mfr    === 'yes')        delta -= 10;
+  return Math.max(0, Math.min(100, st.glass + delta));
+}
+function finish5() {
+  ans5.achieved       = document.getElementById('s5-achieved').value;
+  ans5.failed         = document.getElementById('s5-failed').value;
+  ans5.goals_tomorrow = document.getElementById('s5-goals').value;
+  st.glass = calcGlass5(); st.baseGlass = st.glass; st.done5 = true; st.tools = [];
+  addCupHistory(5); showResult();
+}
+
+// ── SOS ────────────────────────────────────────────────────
+function startSos() {
+  Object.assign(ansSos, { trigger:null, belly:null, mood:null, intensity:null, activity:null });
+  document.querySelectorAll('#sos-screen .opt-btn, #sos-screen .mood-btn').forEach(b => b.classList.remove('sel'));
+  activeCheckup = 'sos'; showStepSos(1); showScreen('sos');
+}
+function showStepSos(n) {
+  document.querySelectorAll('#sos-screen .step').forEach(s => s.classList.remove('active'));
+  document.getElementById('sos-' + n).classList.add('active');
+  document.getElementById('sos-counter').textContent = `${n} / 5`;
+  document.getElementById('sos-fill').style.width = `${(n / 5) * 100}%`;
+  curStepSos = n;
+  if (n === 2) document.querySelectorAll('.inline-water-val').forEach(el => el.textContent = st.water);
+}
+function pickSos(field, val, el) {
+  const group = el.dataset.group;
+  if (group) {
+    el.closest('.step').querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('sel'));
+  } else {
+    el.closest('.step').querySelectorAll('.opt-btn,.mood-btn').forEach(b => b.classList.remove('sel'));
+  }
+  el.classList.add('sel'); ansSos[field] = val;
+}
+function nextSos() { if (curStepSos < 5) showStepSos(curStepSos + 1); }
+function prevSos() { if (curStepSos > 1) showStepSos(curStepSos - 1); }
+function determineSOSEmotion() {
+  const map = { anger:'Гнев', fear:'Страх', sadness:'Грусть', shame:'Стыд', anxiety:'Тревога', other:'Смешанное' };
+  return map[ansSos.mood] || '—';
+}
+function finishSos() { showResult(); }
+
+// ── RESULT ─────────────────────────────────────────────────
+function showResult() {
+  const now = new Date();
+  const mo  = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  document.getElementById('result-date').textContent = `${now.getDate()} ${mo[now.getMonth()]}`;
+  refreshResult(); showScreen('result');
+}
+function refreshResult() {
+  setArc('result-arc', 'result-pct', st.glass, 68, 427);
+  document.getElementById('result-zone').textContent = zoneText(st.glass);
+  const isSos = activeCheckup === 'sos';
+  const banner = document.getElementById('sos-emotion-banner');
+  banner.style.display = isSos ? 'block' : 'none';
+  if (isSos) document.getElementById('sos-emotion-label').textContent = determineSOSEmotion();
+  const keys = selectTools();
+  document.getElementById('tools-section').style.display = keys.length ? 'block' : 'none';
+  renderTools(keys);
+}
+
+const TOOLS = {
+  finish_work: { emoji:'🎯', name:'Сначала заверши работу', dur:null,     d:0,   special:true },
+  breathing:   { emoji:'🌬️', name:'Дыхание',               dur:'5 мин',  d:-10 },
+  warmup:      { emoji:'🤸', name:'Разминка',               dur:'5 мин',  d:-10 },
+  exercise:    { emoji:'🧘', name:'Зарядка',                dur:'15 мин', d:-15 },
+  journal:     { emoji:'📓', name:'Запись в дневник',        dur:'5 мин',  d:-5  },
+  workout:     { emoji:'💪', name:'Тренировка',              dur:'1 час',  d:-25 },
+  nap:         { emoji:'😴', name:'Короткий сон',            dur:'30 мин', d:-15 },
+  cooking:     { emoji:'🍳', name:'Готовка',                 dur:'1 час',  d:-10 },
+  selfcare:    { emoji:'🛁', name:'Уход за собой',           dur:'1 час',  d:-15 },
+  walk:        { emoji:'🎧', name:'Прогулка с подкастом',    dur:'30 мин', d:-15 },
+  series:      { emoji:'📺', name:'Сериал',                  dur:'2 часа', d:-5  },
+  painting:    { emoji:'🎨', name:'Живопись',                dur:'2 часа', d:-10 },
+};
+
+function selectTools() {
+  const glass = st.baseGlass;   // threshold based on pre-tool glass so tools don't vanish mid-session
+  if (glass < 65) return [];
+  const isSos = activeCheckup === 'sos';
+  // SOS — fixed short set, will be reworked separately
+  if (isSos) return ['breathing', 'warmup', 'exercise'];
+  const workIP = st.workInProgress;
+  // Red zone (80+): body + breathing only
+  if (glass >= 80) {
+    const keys = ['breathing', 'warmup', 'exercise'];
+    if (workIP) keys.unshift('finish_work');
+    else        keys.push('workout');
+    return keys;
+  }
+  // Yellow/orange zone (65–79)
+  const shortKeys = ['breathing', 'warmup', 'exercise', 'journal'];
+  if (activeCheckup === 1) return shortKeys;            // morning: always short
+  if (workIP)              return ['finish_work', ...shortKeys]; // still working
+  return [...shortKeys, 'workout', 'nap', 'cooking', 'selfcare', 'walk', 'series', 'painting'];
+}
+
+function applyTool(k) {
+  const t = TOOLS[k];
+  if (!t || t.d === 0) return;
+  if (st.tools.includes(k)) {
+    st.tools = st.tools.filter(x => x !== k);
+    st.glass = Math.min(100, st.glass - t.d);
+  } else {
+    st.tools.push(k);
+    st.glass = Math.max(0, st.glass + t.d);
+  }
+  refreshResult();
+}
+
+function renderTools(keys) {
+  const list = document.getElementById('tools-list');
+  if (!list) return;
+  list.innerHTML = '';
+  keys.forEach(k => {
+    const t = TOOLS[k];
+    if (!t) return;
+    const applied = st.tools.includes(k);
+    const div = document.createElement('div');
+    div.className = 'tool-btn' + (t.special ? ' tool-special' : '') + (applied ? ' applied' : '');
+    if (t.d !== 0) div.onclick = () => applyTool(k);
+    const durHtml  = t.dur ? `<div class="tool-effect">${t.dur}</div>` : '';
+    const badge    = t.special ? '' : `<span class="tool-badge" style="${applied ? '' : 'color:var(--purple-light);background:rgba(167,139,250,0.12)'}">${applied ? '✓' : t.d + '%'}</span>`;
+    div.innerHTML  = `<div class="tool-left"><span class="tool-icon">${t.emoji}</span><div><div class="tool-name">${t.name}</div>${durHtml}</div></div>${badge}`;
+    list.appendChild(div);
+  });
+}
+
+async function saveAndDone() {
+  // Collect applied tools as pending practices
+  const time = new Date().toTimeString().slice(0,5);
+  st.tools.forEach(k => {
+    const t = TOOLS[k];
+    if (!t || t.special) return;
+    // avoid duplicate pending practice for same tool+checkup
+    if (!st.practices.find(p => p.key === k && p.checkup === activeCheckup && !p.completedAt)) {
+      st.practices.push({ key: k, checkup: activeCheckup, emoji: t.emoji, name: t.name, dur: t.dur || '', addedAt: time, completedAt: null });
+    }
+  });
+
+  if      (activeCheckup === 1)     await saveAll();
+  else if (activeCheckup === 2)     await saveCheckupN(2, ans2);
+  else if (activeCheckup === 3)     await saveCheckupN(3, ans3);
+  else if (activeCheckup === 4)     await saveCheckupN(4, ans4);
+  else if (activeCheckup === 5)     await saveCheckupN(5, ans5);
+  else if (activeCheckup === 'sos') await saveCheckupN('sos', ansSos);
+  goHome();
+}
+
+// ── PRACTICES ──────────────────────────────────────────────
+function renderPractices() {
+  const lbl  = document.getElementById('practices-lbl');
+  const card = document.getElementById('practices-card');
+  if (!st.practices.length) { lbl.style.display='none'; card.style.display='none'; return; }
+  lbl.style.display  = 'block';
+  card.style.display = 'block';
+  card.innerHTML = st.practices.map((p, i) => {
+    const done = !!p.completedAt;
+    return `<div class="practice-row">
+      <div class="practice-dot${done?' done':''}" onclick="completePractice(${i})">${done?'✓':''}</div>
+      <div class="practice-info">
+        <div class="practice-name${done?' done':''}">${p.emoji} ${p.name}${p.dur?' · '+p.dur:''}</div>
+        <div class="practice-meta">Чекап ${p.checkup} · ${p.addedAt}${done?' → '+p.completedAt:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function completePractice(i) {
+  if (!st.practices[i] || st.practices[i].completedAt) return;
+  st.practices[i].completedAt = new Date().toTimeString().slice(0,5);
+  renderPractices();
+  try {
+    await sb.from('daily_logs').upsert({ user_id: currentUser.id, date: todayKey(), practices: st.practices }, { onConflict: 'user_id,date' });
+  } catch(e) {}
+}
+
+// ── SUMMARY ────────────────────────────────────────────────
+function openSummary() {
+  const now = new Date();
+  const mo  = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  document.getElementById('summary-date').textContent = `${now.getDate()} ${mo[now.getMonth()]}`;
+  renderSummary();
+  showScreen('summary');
+}
+
+function sRow(label, val) {
+  return `<div class="summary-row"><span class="summary-label">${label}</span><span class="summary-val">${val||'—'}</span></div>`;
+}
+function lblMood(m)  { return {anger:'Гнев',fear:'Страх',sadness:'Грусть',joy:'Радость',love:'Любовь',neutral:'Нейтрально',shame:'Стыд',anxiety:'Тревога',other:'Другое'}[m]||m||'—'; }
+function lblBelly(b) { return b==='ok'?'Норм':b==='discomfort'?'Дискомфорт':'—'; }
+function lblSleep(s) { return {lt7:'< 7ч','7-8':'7–8ч','8plus':'8+ ч'}[s]||s||'—'; }
+function lblYN(v)    { return v==='yes'?'Да':v==='no'?'Нет':'—'; }
+function lblCycle(c) { return c?'День '+c:'—'; }
+function glassAt(n)  { const h=st.cupHistory.find(x=>x.n===n); return h?`${h.score}% · ${h.time}`:'—'; }
+
+function renderCheckupData(n, d) {
+  if (!d) return '';
+  const maps = {
+    2: [['Зарядка',lblYN(d.exercise)],['Вода',lblYN(d.water)],['Туалет',lblYN(d.toilet)],['Завтрак 6–8',lblYN(d.breakfast)],['Живот',lblBelly(d.belly)],['Работа',lblYN(d.work)],['Настроение',lblMood(d.mood)]],
+    3: [['Живот',lblBelly(d.belly)],['Голод',d.hunger?d.hunger+'/10':'—'],['Работа',lblYN(d.work)],['Настроение',lblMood(d.mood)]],
+    4: [['Живот',lblBelly(d.belly)],['Обед 12–14',lblYN(d.lunch)],['Голод',d.hunger?d.hunger+'/10':'—'],['Задачи',lblYN(d.work_done)],['Тренировка',lblYN(d.workout)],['Настроение',lblMood(d.mood)]],
+    5: [['Живот',lblBelly(d.belly)],['Ужин 18–20',lblYN(d.dinner)],['МФР',lblYN(d.mfr)],d.achieved?['Удалось',d.achieved]:null,d.failed?['Не вышло',d.failed]:null,d.goals_tomorrow?['Цели',d.goals_tomorrow]:null,['Сон',lblYN(d.sleep)]].filter(Boolean),
+  };
+  return (maps[n]||[]).map(([l,v])=>sRow(l,v)).join('');
+}
+
+function renderSummary() {
+  const body = document.getElementById('summary-body');
+  const d = todayData;
+  let html = '';
+
+  if (st.done) {
+    html += `<div class="summary-section">
+      <div class="summary-title">☀️ Утренний чекап</div>
+      ${sRow('Стакан', glassAt(1))}
+      ${d ? sRow('Цикл', lblCycle(d.cycle_phase)) : ''}
+      ${d ? sRow('Живот', lblBelly(d.belly)) : ''}
+      ${d ? sRow('Сон', lblSleep(d.sleep)) : ''}
+      ${d?.hunger ? sRow('Голод', d.hunger+'/10') : ''}
+      ${d ? sRow('Тяжёлый день', d.hard_day?'Да':'Нет') : ''}
+      ${d ? sRow('Настроение', lblMood(d.mood)) : ''}
+      ${d?.mini_goals ? `<div class="summary-row"><span class="summary-label">Цели</span><span class="summary-val" style="white-space:pre-wrap">${d.mini_goals}</span></div>` : ''}
+    </div>`;
+  }
+
+  [{n:2,label:'☕ 07:00',done:st.done2,key:'checkup2'},{n:3,label:'🌞 10:00',done:st.done3,key:'checkup3'},{n:4,label:'🌤 13:00',done:st.done4,key:'checkup4'},{n:5,label:'🌇 19:30',done:st.done5,key:'checkup5'}]
+    .forEach(({n,label,done,key}) => {
+      if (!done) return;
+      const cd = d?.[key];
+      html += `<div class="summary-section">
+        <div class="summary-title">${label}</div>
+        ${sRow('Стакан', glassAt(n))}
+        ${renderCheckupData(n, cd)}
+      </div>`;
+    });
+
+  const done_p = st.practices.filter(p=>p.completedAt);
+  const pend_p = st.practices.filter(p=>!p.completedAt);
+  if (st.practices.length) {
+    html += `<div class="summary-section"><div class="summary-title">✓ Практики</div>`;
+    done_p.forEach(p => { html += `<div class="summary-row"><span class="summary-label">${p.completedAt}</span><span class="summary-val">${p.emoji} ${p.name}</span></div>`; });
+    pend_p.forEach(p => { html += `<div class="summary-row"><span class="summary-label" style="color:var(--text-faint)">${p.addedAt} (план)</span><span class="summary-val" style="color:var(--text-muted)">${p.emoji} ${p.name}</span></div>`; });
+    html += `</div>`;
+  }
+
+  if (!html) html = '<div style="text-align:center;color:var(--text-muted);padding:60px 0;font-size:14px;font-family:\'Cormorant Garamond\',serif;font-style:italic;">Пока нет данных за сегодня</div>';
+  body.innerHTML = html;
+}
+
+function dismissWorkReminder() {
+  st.workInProgress = false;
+  st.workReminderDismissed = true;
+  st.workConfirmedDone = true;
+  st.glass = Math.max(0, st.glass - 30);
+  document.getElementById('work-reminder').style.display = 'none';
+  setArc('glass-arc', 'glass-pct', st.glass, 76, 478);
+  document.getElementById('glass-zone').textContent = zoneText(st.glass);
+  savePartial();
+}
+
+// ── DEBUG ──────────────────────────────────────────────────
+function toggleDebug() {
+  const p = document.getElementById('debug-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function closeDebug() { const p = document.getElementById('debug-panel'); if (p) p.style.display = 'none'; }
+
+// ── UTILS ──────────────────────────────────────────────────
+function todayKey() { return new Date().toISOString().slice(0,10); }
+
+initApp();
+</script>
+</body>
+</html>
