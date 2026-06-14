@@ -5,12 +5,12 @@ const webpush = require('web-push');
 
 // Тексты уведомлений по UTC-часу (PDT = UTC-7)
 const SURVEYS = {
-  14: { title: 'Nova · Утро',        body: 'Время утреннего опроса 🌅' },
-  16: { title: 'Nova · Отчёт',       body: 'Заполни утренний отчёт ☀️' },
-  17: { title: 'Nova · Чекин 10:00', body: 'Как дела? Быстрый чекин 🌿' },
-  21: { title: 'Nova · Чекин 14:00', body: 'Дневной чекин — 2 минуты ⚡' },
-  23: { title: 'Nova · Чекин 16:00', body: 'Почти вечер — отметься 🌆' },
-   4: { title: 'Nova · Вечер',       body: 'Подведи итог дня ✨' },
+  10: { title: 'Nova · Утренний опрос',  body: 'Доброе утро — заполни опрос 🌅' },
+  14: { title: 'Nova · Утренний отчёт',  body: 'Время утреннего отчёта ☀️' },
+  17: { title: 'Nova · Чекин 10:00',     body: 'Как дела? Быстрый чекин 🌿' },
+  20: { title: 'Nova · Чекин 13:00',     body: 'Дневной чекин — 2 минуты ⚡' },
+  23: { title: 'Nova · Чекин 16:00',     body: 'Почти вечер — отметься 🌆' },
+   2: { title: 'Nova · Вечерний отчёт',  body: 'Подведи итог дня ✨' },
 };
 
 async function main() {
@@ -33,6 +33,7 @@ async function main() {
   const sub  = rows[0]?.push_subscription;
 
   if (!sub) { console.log('Нет push-подписки в профиле'); return; }
+  console.log('Subscription endpoint:', typeof sub === 'string' ? JSON.parse(sub).endpoint : sub.endpoint);
 
   webpush.setVapidDetails(
     'mailto:nova@app.local',
@@ -47,8 +48,10 @@ async function main() {
     await webpush.sendNotification(subObj, payload);
     console.log(`✓ Отправлено: ${survey.title}`);
   } catch (err) {
+    console.error('Push error statusCode:', err.statusCode);
+    console.error('Push error body:', err.body);
+    console.error('Push error message:', err.message);
     if (err.statusCode === 410 || err.statusCode === 404) {
-      // Подписка истекла — удаляем из профиля
       await fetch(
         `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${process.env.NOVA_USER_ID}`,
         {
