@@ -1,6 +1,6 @@
 // ── WEB PUSH УВЕДОМЛЕНИЯ ─────────────────────────────────
 // Замени на свой публичный VAPID-ключ после запуска scripts/generate-vapid.js
-const VAPID_PUBLIC_KEY = 'REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY';
+const VAPID_PUBLIC_KEY = 'BO17HXfGYbE757_iGMF6TBIrIfNDRgkVsxemsKKpiE2HhETjog5X97bP_72d5C_zdlAnocWMWOvxa-msDg9_fsk';
 
 function urlB64ToUint8(b64) {
   const pad = '='.repeat((4 - b64.length % 4) % 4);
