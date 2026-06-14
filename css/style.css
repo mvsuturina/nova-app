@@ -135,21 +135,38 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 /* ── ТРЕКЕРЫ (еда и вода) ─────────────────────────────── */
 .tracker-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
 .meal-row { display: flex; gap: 8px; }
-.meal-slot { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.2s; font-family: 'Jost', sans-serif; }
-.meal-slot.done { background: var(--purple-dim); border-color: var(--purple); }
-.meal-slot-icon { font-size: 16px; line-height: 1; margin-bottom: 4px; color: var(--text-muted); }
-.meal-slot.done .meal-slot-icon { color: var(--purple-light); }
-.meal-slot-name { font-size: 12px; color: var(--text-dim); font-weight: 500; }
-.meal-slot.done .meal-slot-name { color: var(--purple-light); }
-.meal-slot-window { font-size: 10px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.5px; }
+
+/* ── новые карточки еды ── */
+.meal-card { flex: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg3); display: flex; flex-direction: column; -webkit-tap-highlight-color: transparent; }
+.meal-card.done { border-color: var(--purple); }
+
+.meal-card-photo { height: 96px; background-color: var(--bg2); background-size: cover; background-position: center top; position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.meal-card-photo.has-photo { cursor: zoom-in; }
+.meal-card-photo .meal-cam-wrap { position: absolute; top: 6px; right: 6px; }
+.meal-cam-label { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(8,7,15,0.65); border-radius: 50%; cursor: pointer; font-size: 12px; -webkit-tap-highlight-color: transparent; }
+.meal-del-btn { position: absolute; top: 6px; left: 6px; background: rgba(8,7,15,0.65); border: none; border-radius: 50%; color: #aaa; font-size: 9px; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.meal-cam-placeholder { font-size: 20px; opacity: 0.35; }
+
+.meal-card-info { padding: 8px 8px 10px; text-align: center; cursor: pointer; border-top: 1px solid var(--border); transition: background 0.2s; }
+.meal-card.done .meal-card-info { background: var(--purple-dim); }
+.meal-card-info:active { opacity: 0.7; }
+.meal-slot-icon { font-size: 14px; line-height: 1; margin-bottom: 3px; color: var(--text-faint); }
+.meal-card.done .meal-slot-icon { color: var(--purple-light); }
+.meal-slot-name { font-size: 11px; color: var(--text-dim); font-weight: 500; }
+.meal-card.done .meal-slot-name { color: var(--purple-light); }
+.meal-slot-window { font-size: 9px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.5px; }
+
+/* лайтбокс */
+.photo-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.photo-lightbox.open { display: flex; }
+.photo-lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; object-fit: contain; }
+
 .water-dots { display: flex; gap: 5px; flex-wrap: wrap; }
 .water-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); transition: all 0.25s; }
 .water-dot.filled { background: #1a3a5c; border-color: #3b7dd8; }
 .water-add-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-family: 'Jost', sans-serif; letter-spacing: 1px; padding: 4px 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.2s; }
 .water-add-btn:active { opacity: 0.6; }
 .water-add-btn:disabled { opacity: 0.3; cursor: default; }
-.meal-photo-btn { background: none; border: 1px solid var(--border); border-radius: 8px; width: 100%; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; -webkit-tap-highlight-color: transparent; transition: opacity 0.2s; overflow: hidden; text-align: center; }
-.meal-photo-btn:active { opacity: 0.7; }
 .meal-survey-photo { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; cursor: pointer; font-size: 12px; color: var(--text-faint); font-family: 'Jost', sans-serif; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; -webkit-tap-highlight-color: transparent; }
 .meal-survey-photo:active { opacity: 0.7; }
 

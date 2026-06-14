@@ -161,29 +161,32 @@ function renderTrackers() {
     const { label, window } = MEAL_WINDOWS[type];
     const done  = todayMeals[type];
     const photo = todayMealPhotos[type];
-    const photoArea = photo
-      ? `<div class="meal-photo-btn" style="position:relative;">
-           <label style="display:block;cursor:pointer;">
-             <input type="file" accept="image/*" style="display:none" onchange="handleMealPhotoFile('${type}',this)">
-             <img src="${photo}" style="width:100%;height:72px;object-fit:cover;object-position:center top;display:block;">
-           </label>
-           <button onclick="deleteMealPhoto('${type}')"
-                   style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.65);border:none;
-                          border-radius:50%;color:#fff;font-size:10px;width:18px;height:18px;cursor:pointer;
-                          display:flex;align-items:center;justify-content:center;padding:0;line-height:1;">✕</button>
-         </div>`
-      : `<label class="meal-photo-btn">
-           <input type="file" accept="image/*" style="display:none" onchange="handleMealPhotoFile('${type}',this)">
-           <span style="display:block;padding:5px 0;font-size:14px;cursor:pointer;">📷</span>
-         </label>`;
+    const photoStyle = photo ? `background-image:url('${photo}')` : '';
+    const delBtn = photo
+      ? `<button class="meal-del-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">✕</button>`
+      : '';
+    const photoClick = photo ? `openMealLightbox('${photo}')` : '';
+    const photoAreaClick = photo
+      ? `onclick="event.stopPropagation();openMealLightbox('${photo}')"`
+      : '';
     return `
-      <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
-        <button class="meal-slot${done ? ' done' : ''}" onclick="logMeal('${type}')" style="width:100%;flex:none;">
+      <div class="meal-card${done ? ' done' : ''}">
+        <div class="meal-card-photo${photo ? ' has-photo' : ''}" style="${photoStyle}" ${photoAreaClick}>
+          ${!photo ? '<span class="meal-cam-placeholder">📷</span>' : ''}
+          ${delBtn}
+          <div class="meal-cam-wrap">
+            <label class="meal-cam-label" onclick="event.stopPropagation()">
+              <input type="file" accept="image/*" capture="environment" style="display:none"
+                     onchange="handleMealPhotoFile('${type}',this)">
+              📷
+            </label>
+          </div>
+        </div>
+        <div class="meal-card-info" onclick="logMeal('${type}')">
           <div class="meal-slot-icon">${done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label}</div>
           <div class="meal-slot-window">${window}</div>
-        </button>
-        ${photoArea}
+        </div>
       </div>`;
   }).join('');
 
@@ -411,6 +414,16 @@ async function completeTask(taskId, toolWeight) {
   });
   todayScore = newValue;
   renderScore();
+}
+
+function openMealLightbox(url) {
+  const lb = document.getElementById('photo-lightbox');
+  document.getElementById('photo-lightbox-img').src = url;
+  lb.classList.add('open');
+}
+
+function closeMealLightbox() {
+  document.getElementById('photo-lightbox').classList.remove('open');
 }
 
 function updateClock() {
