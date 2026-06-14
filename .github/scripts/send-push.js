@@ -15,7 +15,10 @@ const SURVEYS = {
 
 async function main() {
   const hour = new Date().getUTCHours();
-  const survey = SURVEYS[hour];
+  const survey = SURVEYS[hour]
+    || (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+        ? { title: 'Nova · Тест', body: 'Уведомления работают ✓' }
+        : null);
   if (!survey) { console.log(`Нет опроса для UTC hour=${hour}`); return; }
 
   // Получаем подписку из Supabase
