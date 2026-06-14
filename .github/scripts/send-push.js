@@ -36,7 +36,7 @@ async function main() {
   console.log('Subscription endpoint:', typeof sub === 'string' ? JSON.parse(sub).endpoint : sub.endpoint);
 
   webpush.setVapidDetails(
-    'mailto:nova@app.local',
+    'mailto:mayv666@gmail.com',
     process.env.VAPID_PUBLIC,
     process.env.VAPID_PRIVATE
   );
