@@ -2,8 +2,8 @@ name: Daily Backup
 
 on:
   schedule:
-    - cron: '0 7 * * *'  # 7am UTC = midnight PDT (UTC-7)
-  workflow_dispatch:       # ручной запуск из вкладки Actions
+    - cron: '0 7 * * *'  # 7am UTC = midnight PDT
+  workflow_dispatch:
 
 jobs:
   backup:
@@ -19,38 +19,50 @@ jobs:
           H1="apikey: $KEY"
           H2="Authorization: Bearer $KEY"
           DATE=$(date +%Y-%m-%d)
+          echo "DATE=$DATE" >> $GITHUB_ENV
 
           get() {
-            curl -sf -H "$H1" -H "$H2" \
-              "$URL/rest/v1/$1?user_id=eq.$UID&select=$2&order=created_at.asc&limit=10000"
+            local table=$1
+            curl -sf \
+              -H "$H1" -H "$H2" \
+              "$URL/rest/v1/$table?user_id=eq.$UID&select=*&order=created_at.asc&limit=10000" \
+              || echo '[]'
           }
 
-          # Sessions with embedded answers (one query)
-          sessions=$(curl -sf -H "$H1" -H "$H2" \
-            "$URL/rest/v1/daily_survey_sessions?user_id=eq.$UID&select=*,answers:daily_survey_answers(*)&order=completed_at.asc&limit=10000")
+          # answers linked via session_id — fetch all, filter later
+          answers=$(curl -sf \
+            -H "$H1" -H "$H2" \
+            "$URL/rest/v1/daily_survey_answers?select=*&order=answered_at.asc&limit=10000" \
+            || echo '[]')
 
-          # Scores with embedded snapshots (one query)
-          scores=$(curl -sf -H "$H1" -H "$H2" \
-            "$URL/rest/v1/daily_scores?user_id=eq.$UID&select=*,snapshot:daily_score_snapshots(*)&order=created_at.asc&limit=10000")
+          # snapshots linked via score_id — fetch all for this user via scores join
+          snapshots=$(curl -sf \
+            -H "$H1" -H "$H2" \
+            "$URL/rest/v1/daily_score_snapshots?select=*&order=created_at.asc&limit=10000" \
+            || echo '[]')
 
           jq -n \
-            --arg date "$DATE" \
-            --arg uid  "$UID" \
-            --argjson sessions  "$sessions" \
-            --argjson scores    "$scores" \
-            --argjson meals     "$(get meal_log     '*')" \
-            --argjson water     "$(get water_log    '*')" \
-            --argjson activity  "$(get activity_log '*')" \
-            --argjson goals     "$(get mini_goals   '*')" \
-            --argjson tasks     "$(get daily_tasks  '*')" \
-            --argjson journals  "$(get journal_entries '*')" \
-            --argjson hunger    "$(get hunger_log   '*')" \
-            --argjson emotions  "$(get emotion_log  '*')" \
+            --arg  date      "$DATE" \
+            --arg  uid       "$UID" \
+            --argjson scores    "$(get daily_scores)" \
+            --argjson sessions  "$(get daily_survey_sessions)" \
+            --argjson answers   "$answers" \
+            --argjson snapshots "$snapshots" \
+            --argjson meals     "$(get meal_log)" \
+            --argjson water     "$(get water_log)" \
+            --argjson activity  "$(get activity_log)" \
+            --argjson goals     "$(get mini_goals)" \
+            --argjson tasks     "$(get daily_tasks)" \
+            --argjson journals  "$(get journal_entries)" \
+            --argjson hunger    "$(get hunger_log)" \
+            --argjson emotions  "$(get emotion_log)" \
             '{
               exported_at: $date,
               user_id:     $uid,
-              sessions:    $sessions,
               scores:      $scores,
+              sessions:    $sessions,
+              answers:     $answers,
+              snapshots:   $snapshots,
               meals:       $meals,
               water:       $water,
               activity:    $activity,
@@ -66,6 +78,6 @@ jobs:
       - name: Save as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nova-backup-${{ env.DATE || 'manual' }}
+          name: nova-backup-${{ env.DATE }}
           path: nova-backup-*.json
-          retention-days: 400  # максимум для публичных репо
+          retention-days: 400
