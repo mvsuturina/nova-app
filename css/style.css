@@ -137,24 +137,26 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .meal-row { display: flex; gap: 8px; }
 
 /* ── новые карточки еды ── */
-.meal-card { flex: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg3); display: flex; flex-direction: column; -webkit-tap-highlight-color: transparent; }
+.meal-card { flex: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 140px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center top; }
 .meal-card.done { border-color: var(--purple); }
+.meal-card:active { opacity: 0.85; }
 
-.meal-card-photo { height: 96px; background-color: var(--bg2); background-size: cover; background-position: center top; position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.meal-card-photo.has-photo { cursor: zoom-in; }
-.meal-card-photo .meal-cam-wrap { position: absolute; top: 6px; right: 6px; }
-.meal-cam-label { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(8,7,15,0.65); border-radius: 50%; cursor: pointer; font-size: 12px; -webkit-tap-highlight-color: transparent; }
-.meal-del-btn { position: absolute; top: 6px; left: 6px; background: rgba(8,7,15,0.65); border: none; border-radius: 50%; color: #aaa; font-size: 9px; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
-.meal-cam-placeholder { font-size: 20px; opacity: 0.35; }
+/* градиент поверх фото */
+.meal-card-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(8,7,15,0.15) 0%, rgba(8,7,15,0.75) 60%, rgba(8,7,15,0.92) 100%); }
 
-.meal-card-info { padding: 8px 8px 10px; text-align: center; cursor: pointer; border-top: 1px solid var(--border); transition: background 0.2s; }
-.meal-card.done .meal-card-info { background: var(--purple-dim); }
-.meal-card-info:active { opacity: 0.7; }
-.meal-slot-icon { font-size: 14px; line-height: 1; margin-bottom: 3px; color: var(--text-faint); }
+/* текст поверх градиента */
+.meal-card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 10px 10px; z-index: 1; }
+.meal-slot-icon { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
 .meal-card.done .meal-slot-icon { color: var(--purple-light); }
-.meal-slot-name { font-size: 11px; color: var(--text-dim); font-weight: 500; }
-.meal-card.done .meal-slot-name { color: var(--purple-light); }
-.meal-slot-window { font-size: 9px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.5px; }
+.meal-slot-name { font-size: 12px; color: #e0d8f8; font-weight: 500; }
+.meal-card.done .meal-slot-name { color: #fff; }
+.meal-slot-window { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 1px; letter-spacing: 0.5px; }
+
+/* кнопки поверх */
+.meal-cam-label { position: absolute; top: 7px; right: 7px; z-index: 2; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(8,7,15,0.6); border-radius: 50%; cursor: pointer; font-size: 12px; -webkit-tap-highlight-color: transparent; }
+.meal-del-btn { position: absolute; top: 7px; left: 7px; z-index: 2; background: rgba(8,7,15,0.6); border: none; border-radius: 50%; color: #aaa; font-size: 9px; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.meal-expand-btn { position: absolute; bottom: 10px; right: 8px; z-index: 2; background: rgba(8,7,15,0.55); border: none; border-radius: 6px; color: rgba(255,255,255,0.5); font-size: 11px; padding: 2px 5px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.meal-cam-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: 0.2; z-index: 0; }
 
 /* лайтбокс */
 .photo-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }

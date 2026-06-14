@@ -161,28 +161,25 @@ function renderTrackers() {
     const { label, window } = MEAL_WINDOWS[type];
     const done  = todayMeals[type];
     const photo = todayMealPhotos[type];
-    const photoStyle = photo ? `background-image:url('${photo}')` : '';
-    const delBtn = photo
+    const bgStyle = photo ? `background-image:url('${photo}')` : '';
+    const delBtn  = photo
       ? `<button class="meal-del-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">✕</button>`
       : '';
-    const photoClick = photo ? `openMealLightbox('${photo}')` : '';
-    const photoAreaClick = photo
-      ? `onclick="event.stopPropagation();openMealLightbox('${photo}')"`
+    const expandBtn = photo
+      ? `<button class="meal-expand-btn" onclick="event.stopPropagation();openMealLightbox('${photo}')">⤢</button>`
       : '';
     return `
-      <div class="meal-card${done ? ' done' : ''}">
-        <div class="meal-card-photo${photo ? ' has-photo' : ''}" style="${photoStyle}" ${photoAreaClick}>
-          ${!photo ? '<span class="meal-cam-placeholder">📷</span>' : ''}
-          ${delBtn}
-          <div class="meal-cam-wrap">
-            <label class="meal-cam-label" onclick="event.stopPropagation()">
-              <input type="file" accept="image/*" capture="environment" style="display:none"
-                     onchange="handleMealPhotoFile('${type}',this)">
-              📷
-            </label>
-          </div>
-        </div>
-        <div class="meal-card-info" onclick="logMeal('${type}')">
+      <div class="meal-card${done ? ' done' : ''}" style="${bgStyle}" onclick="logMeal('${type}')">
+        <div class="meal-card-overlay"></div>
+        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
+        ${delBtn}
+        <label class="meal-cam-label" onclick="event.stopPropagation()">
+          <input type="file" accept="image/*" capture="environment" style="display:none"
+                 onchange="handleMealPhotoFile('${type}',this)">
+          📷
+        </label>
+        ${expandBtn}
+        <div class="meal-card-label">
           <div class="meal-slot-icon">${done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label}</div>
           <div class="meal-slot-window">${window}</div>
