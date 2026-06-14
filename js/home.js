@@ -56,8 +56,9 @@ function renderSurveyCta() {
   document.getElementById('survey5-cta')?.remove();
   document.getElementById('survey6-cta')?.remove();
 
-  const ref = document.getElementById('tasks-label');
-  if (!ref) return;
+  const scroll = document.querySelector('.home-scroll');
+  if (!scroll) return;
+  const ref = scroll.firstElementChild; // вставляем в самый верх
 
   // Вставляем по порядку — каждый insertBefore(btn, ref) сдвигает вниз
   if (todayScore === null) {
