@@ -45,6 +45,9 @@ async function requestPushPermission() {
 
   try {
     const reg = await navigator.serviceWorker.ready;
+    // Отписываемся от старой подписки если есть (нужно при смене VAPID ключа)
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe();
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlB64ToUint8(VAPID_PUBLIC_KEY),
