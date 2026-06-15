@@ -26,7 +26,16 @@ async function loadUserData() {
     if (pd) {
       profile = pd;
       if (pd.groq_api_key) localStorage.setItem('nova_api_key', pd.groq_api_key);
-      if (pd.timezone) userTimezone = pd.timezone;
+      if (pd.timezone && pd.timezone !== 'UTC') {
+        userTimezone = pd.timezone;
+      } else {
+        // Авто-определяем и сохраняем если не задан или остался дефолтный UTC
+        const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (detected && detected !== 'UTC') {
+          userTimezone = detected;
+          sb.from('profiles').update({ timezone: detected }).eq('id', currentUser.id);
+        }
+      }
     }
 
     const today = todayKey();
