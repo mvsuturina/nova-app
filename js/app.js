@@ -207,13 +207,20 @@ async function debugResetDay() {
   if (!confirm('Сбросить данные за сегодня?')) return;
   const today = todayKey();
 
-  await sb.from('journal_entries').delete().eq('user_id', currentUser.id).eq('date', today);
-  // Разрываем круговой FK перед удалением daily_scores
+  // Получаем ID сессий за сегодня
+  const { data: todaySessions } = await sb.from('daily_survey_sessions')
+    .select('id').eq('user_id', currentUser.id).eq('date', today);
+  const sessionIds = (todaySessions || []).map(s => s.id);
+
+  // Удаляем ответы (FK → sessions), потом разрываем circular FK, потом всё остальное
+  if (sessionIds.length) {
+    await sb.from('daily_survey_answers').delete().in('session_id', sessionIds);
+  }
   await sb.from('daily_survey_sessions')
-    .update({ daily_score_id: null })
-    .eq('user_id', currentUser.id).eq('date', today);
+    .update({ daily_score_id: null }).eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_scores').delete().eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_tasks').delete().eq('user_id', currentUser.id).eq('date', today);
+  await sb.from('journal_entries').delete().eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_survey_sessions').delete().eq('user_id', currentUser.id).eq('date', today);
   await Promise.all([
     sb.from('meal_log').delete().eq('user_id', currentUser.id).eq('date', today),
