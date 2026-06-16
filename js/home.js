@@ -194,24 +194,19 @@ function renderTrackers() {
         ).join('')}</div>`
       : '';
 
-    // Без фото — весь блок открывает модал.
-    // С фото — только нижняя подпись открывает модал, сам блок только для свайпа.
-    const cardClick = photos.length === 0 ? `onclick="openMealModal('${type}')"` : '';
-
     return `
       <div class="meal-card${meal.done ? ' done' : ''}"
            data-meal="${type}"
            style="${photo ? `background-image:url('${photo}')` : ''}"
-           ${cardClick}
+           ondblclick="openMealModal('${type}')"
            ontouchstart="mealTouchStart(event,'${type}')"
            ontouchend="mealTouchEnd(event,'${type}')">
         <div class="meal-card-overlay"></div>
         ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
         ${dots}
-        <div class="meal-card-label" onclick="event.stopPropagation();openMealModal('${type}')">
+        <div class="meal-card-label">
           <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label} ${qualityTag}</div>
-          ${photos.length > 0 ? `<div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:3px;letter-spacing:1px;">нажми чтобы открыть ···</div>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -340,24 +335,49 @@ async function logActivity(type) {
 
 // ── КАРУСЕЛЬ ФОТ В КАРТОЧКЕ ───────────────────────────────
 
-let _mealTouchX = null;
+let _mealTouchX      = null;
+let _mealTouchY      = null;
+let _mealLastTapType = null;
+let _mealLastTapTime = 0;
 
 function mealTouchStart(e, type) {
   _mealTouchX = e.touches[0].clientX;
+  _mealTouchY = e.touches[0].clientY;
 }
 
 function mealTouchEnd(e, type) {
   if (_mealTouchX === null) return;
   const dx = e.changedTouches[0].clientX - _mealTouchX;
+  const dy = e.changedTouches[0].clientY - _mealTouchY;
   _mealTouchX = null;
-  const photos = todayMealPhotos[type] || [];
-  if (Math.abs(dx) < 40 || photos.length <= 1) return;
-  e.preventDefault(); // не открывать модал при свайпе
-  const cur = mealCarouselIdx[type] || 0;
-  mealCarouselIdx[type] = dx < 0
-    ? Math.min(cur + 1, photos.length - 1)
-    : Math.max(cur - 1, 0);
-  updateMealCarousel(type);
+  _mealTouchY = null;
+
+  // Горизонтальный свайп → листаем фото
+  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) {
+    const photos = todayMealPhotos[type] || [];
+    if (photos.length > 1) {
+      e.preventDefault();
+      const cur = mealCarouselIdx[type] || 0;
+      mealCarouselIdx[type] = dx < 0
+        ? Math.min(cur + 1, photos.length - 1)
+        : Math.max(cur - 1, 0);
+      updateMealCarousel(type);
+    }
+    return;
+  }
+
+  // Тап (без движения) → детектируем двойной тап
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+    const now = Date.now();
+    if (_mealLastTapType === type && now - _mealLastTapTime < 350) {
+      _mealLastTapType = null;
+      _mealLastTapTime = 0;
+      openMealModal(type);
+    } else {
+      _mealLastTapType = type;
+      _mealLastTapTime = now;
+    }
+  }
 }
 
 function updateMealCarousel(type) {
