@@ -404,6 +404,7 @@ async function saveMealModal() {
   const type = activeMealType;
   const today = todayKey();
   const { quality, hungerBefore, hungerAfter, hungerAfterHour, description } = mealModalData;
+  const isFirstLog = !todayMeals[type].done; // скор пересчитываем только при первом логировании
 
   closeMealModal();
 
@@ -436,7 +437,7 @@ async function saveMealModal() {
   };
 
   renderTrackers();
-  await recalculateScore('meal_' + type);
+  if (isFirstLog) await recalculateScore('meal_' + type);
 }
 
 async function deleteMealFromModal() {
@@ -484,8 +485,9 @@ async function handleMealPhotoFile(mealType, input) {
   if (photos.length >= 3) return;
 
   const today = todayKey();
+  const isFirstLog = !todayMeals[mealType].done;
 
-  if (!todayMeals[mealType].done) {
+  if (isFirstLog) {
     const h = new Date().getHours();
     const inWindow = { breakfast: h>=6&&h<8, lunch: h>=12&&h<14, dinner: h>=16&&h<18 }[mealType] ?? false;
     await sb.from('meal_log').insert({
@@ -505,6 +507,7 @@ async function handleMealPhotoFile(mealType, input) {
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', mealType);
   todayMealPhotos[mealType] = newPhotos;
   renderTrackers();
+  if (isFirstLog) await recalculateScore('meal_' + mealType);
 }
 
 async function deleteMealPhoto(mealType, idx) {
