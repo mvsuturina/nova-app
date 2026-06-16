@@ -79,8 +79,6 @@ async function recalculateScore(source) {
   const doneCount = dailyTasks.filter(t => t.is_complete).length;
   s -= doneCount * 10;
 
-  s = Math.max(0, s);
-
   // Не логируем если значение не изменилось
   if (todayScore !== null && todayScore === s) {
     renderScore();

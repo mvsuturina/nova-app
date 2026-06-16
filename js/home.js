@@ -35,10 +35,11 @@ function renderScore() {
     return;
   }
 
-  const zone = getZone(todayScore);
-  const pct  = Math.min(100, todayScore);
+  const zone    = getZone(todayScore);
+  const display = Math.max(0, todayScore);
+  const pct     = Math.min(100, display);
 
-  valueEl.textContent = todayScore;
+  valueEl.textContent = display;
   valueEl.className   = `score-value ${zone}`;
   fillEl.style.width  = pct + '%';
   fillEl.className    = `score-fill ${zone}`;
@@ -482,7 +483,9 @@ async function saveMealModal() {
   const type = activeMealType;
   const today = todayKey();
   const { quality, hungerBefore, hungerAfter, hungerAfterHour, description } = mealModalData;
-  const isFirstLog = !todayMeals[type].done; // скор пересчитываем только при первом логировании
+  const prevDone    = todayMeals[type].done;
+  const prevQuality = todayMeals[type].quality;
+  const isFirstLog  = !prevDone;
 
   closeMealModal();
 
@@ -515,7 +518,7 @@ async function saveMealModal() {
   };
 
   renderTrackers();
-  if (isFirstLog) await recalculateScore('meal_' + type);
+  if (isFirstLog || (quality || null) !== prevQuality) await recalculateScore('meal_' + type);
 }
 
 async function deleteMealFromModal() {
