@@ -81,6 +81,12 @@ async function recalculateScore(source) {
 
   s = Math.max(0, s);
 
+  // Не логируем если значение не изменилось
+  if (todayScore !== null && todayScore === s) {
+    renderScore();
+    return;
+  }
+
   await sb.from('daily_scores').insert({
     user_id: currentUser.id,
     date:    todayKey(),

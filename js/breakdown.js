@@ -1,20 +1,21 @@
 // ── РАЗБОР СЧЁТА ─────────────────────────────────────────
 
 const SOURCE_LABELS = {
-  checkin_1: 'Утренний опрос',
-  checkin_2: 'Утренний отчёт',
-  checkin_3: 'Чекин 10:00',
-  checkin_4: 'Чекин 14:00',
-  checkin_5: 'Чекин 16:00',
-  checkin_6: 'Вечерний отчёт',
-  fact_toilet:      'Туалет',
-  fact_work:        'Работа',
-  activity_warmup:  'Разминка',
-  activity_workout: 'Тренировка',
-  activity_walk:    'Прогулка',
-  meal_breakfast:   'Завтрак',
-  meal_lunch:       'Обед',
-  meal_dinner:      'Ужин',
+  checkin_1:   'Начало',
+  checkin_2:   'Чекап 7:00',
+  checkin_3:   'Чекап 10:00',
+  checkin_4:   'Чекап 13:00',
+  checkin_5:   'Чекап 16:00',
+  checkin_6:   'Рефлексия дня',
+  cycle_phase:       'Фаза цикла',
+  fact_toilet:       'Туалет',
+  fact_work:         'Работа',
+  activity_warmup:   'Разминка',
+  activity_workout:  'Тренировка',
+  activity_walk:     'Прогулка',
+  meal_breakfast:         'Завтрак',
+  meal_lunch:             'Обед',
+  meal_dinner:            'Ужин',
   meal_breakfast_removed: 'Завтрак удалён',
   meal_lunch_removed:     'Обед удалён',
   meal_dinner_removed:    'Ужин удалён',
@@ -54,13 +55,17 @@ async function showBreakdown() {
       <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:${color};">${todayScore}</div>
     </div>`;
 
-  // ── История ──
-  const historyRows = (history || []).map(row => {
+  // ── История (только строки где скор изменился) ──
+  const filteredHistory = (history || []).filter((row, i, arr) =>
+    i === 0 || row.value !== arr[i - 1].value
+  );
+
+  const historyRows = filteredHistory.map(row => {
     const timeStr = new Date(row.created_at).toLocaleTimeString('ru', {
       timeZone: userTimezone, hour: '2-digit', minute: '2-digit',
     });
-    const rz  = getZone(row.value);
-    const rc  = zc[rz] || 'var(--text-dim)';
+    const rz = getZone(row.value);
+    const rc = zc[rz] || 'var(--text-dim)';
     return `<div class="bkd-row" style="padding:8px 0;">
       <div style="font-size:11px;color:var(--text-faint);min-width:38px;flex-shrink:0;">${timeStr}</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;
@@ -69,11 +74,11 @@ async function showBreakdown() {
     </div>`;
   }).join('');
 
-  const historyHtml = history?.length
-    ? `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
-                   margin-bottom:8px;">ИСТОРИЯ ДНЯ</div>
-       ${historyRows}
-       <div style="height:1px;background:var(--border);margin:16px 0;"></div>`
+  const historyHtml = filteredHistory.length
+    ? `<div style="height:1px;background:var(--border);margin:20px 0 16px;"></div>
+       <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
+                   margin-bottom:8px;">ИСТОРИЯ ПЕРЕСЧЁТА СКОРА</div>
+       ${historyRows}`
     : '';
 
   // ── Текущее состояние ──
@@ -143,13 +148,13 @@ async function showBreakdown() {
 
   document.getElementById('breakdown-body').innerHTML =
     totalHtml +
-    historyHtml +
     sectionHdr('ФАКТЫ') + factRows +
-    (actRows  ? sectionHdr('АКТИВНОСТЬ') + actRows   : '') +
-    (mealRows ? sectionHdr('ЕДА')        + mealRows  : '') +
+    (actRows  ? sectionHdr('АКТИВНОСТЬ') + actRows  : '') +
+    (mealRows ? sectionHdr('ЕДА')        + mealRows : '') +
     (dynRows  ? dynHdr + dynRows : '') +
     (taskRows ? sectionHdr('ЗАДАЧИ') + taskRows : '') +
-    hint;
+    hint +
+    historyHtml;
 }
 
 function closeBreakdown() {
