@@ -58,7 +58,7 @@ async function loadDayLog() {
   const sIds = (sessions || []).map(s => s.id);
 
   const [ansRes, scoresRes, mealRes, activityRes, journalRes, tasksRes,
-         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes, questionsRes] = await Promise.all([
+         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes] = await Promise.all([
     sIds.length
       ? sb.from('daily_survey_answers')
           .select('session_id, question_id, value')
@@ -86,11 +86,7 @@ async function loadDayLog() {
     sb.from('sleeps').select('id, label'),
     sb.from('stomach_states').select('id, label'),
     sb.from('emotion_types').select('id, label'),
-    sb.from('questions').select('id, key'),
   ]);
-
-  // Строим map вопросов по id для надёжного lookup
-  const questionMap = new Map((questionsRes.data || []).map(q => [q.id, q.key]));
 
   const ref = {
     periods:  periodsRes.data  || [],
@@ -99,10 +95,16 @@ async function loadDayLog() {
     emotions: emotionsRes.data || [],
   };
 
-  // Обогащаем ответы ключом вопроса через map (не через FK-join, который может вернуть null)
+  // Маппинг question_id → ключ.
+  // Используем surveyRef (уже загружен в app.js) — это те же IDs, по которым сохраняются ответы.
+  // sleep в survey 1 сохраняется с хардкодом question_id=2.
+  const qIdKey = { '2': 'sleep' };
+  if (surveyRef?.stomachQId) qIdKey[String(surveyRef.stomachQId)] = 'stomach';
+  if (surveyRef?.emotionQId) qIdKey[String(surveyRef.emotionQId)] = 'emotion';
+
   const answers = (ansRes.data || []).map(a => ({
     ...a,
-    question: { key: questionMap.get(a.question_id) || null },
+    question: { key: qIdKey[String(a.question_id)] || null },
   }));
   const scores     = scoresRes.data   || [];
   const meals      = mealRes.data     || [];
