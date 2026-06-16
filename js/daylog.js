@@ -57,11 +57,12 @@ async function loadDayLog() {
 
   const sIds = (sessions || []).map(s => s.id);
 
-  const queries = [
+  const [ansRes, scoresRes, mealRes, activityRes, journalRes, tasksRes,
+         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes, questionsRes] = await Promise.all([
     sIds.length
       ? sb.from('daily_survey_answers')
-          .select('session_id, value, question:question_id(key, text, type)')
-          .in('session_id', sIds).order('answered_at')
+          .select('session_id, question_id, value')
+          .in('session_id', sIds).order('id')
       : Promise.resolve({ data: [] }),
     sb.from('daily_scores')
       .select('value, session_id').eq('user_id', currentUser.id).eq('date', today)
@@ -85,10 +86,11 @@ async function loadDayLog() {
     sb.from('sleeps').select('id, label'),
     sb.from('stomach_states').select('id, label'),
     sb.from('emotion_types').select('id, label'),
-  ];
+    sb.from('questions').select('id, key'),
+  ]);
 
-  const [ansRes, scoresRes, mealRes, activityRes, journalRes, tasksRes,
-         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes] = await Promise.all(queries);
+  // Строим map вопросов по id для надёжного lookup
+  const questionMap = new Map((questionsRes.data || []).map(q => [q.id, q.key]));
 
   const ref = {
     periods:  periodsRes.data  || [],
@@ -97,7 +99,11 @@ async function loadDayLog() {
     emotions: emotionsRes.data || [],
   };
 
-  const answers    = ansRes.data      || [];
+  // Обогащаем ответы ключом вопроса через map (не через FK-join, который может вернуть null)
+  const answers = (ansRes.data || []).map(a => ({
+    ...a,
+    question: { key: questionMap.get(a.question_id) || null },
+  }));
   const scores     = scoresRes.data   || [];
   const meals      = mealRes.data     || [];
   const activities = activityRes.data || [];
