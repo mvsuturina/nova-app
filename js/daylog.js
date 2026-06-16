@@ -212,22 +212,9 @@ async function loadDayLog() {
       </div>` : ''}
     </div>`;
 
-  // ── DEBUG (убрать после проверки) ────────────────────────
-  const debugHtml = `<div style="background:#1a0a00;border:1px solid #ff6600;border-radius:8px;padding:12px;margin-bottom:16px;font-size:11px;font-family:monospace;color:#ff9944;line-height:1.7;">
-    <b>DEBUG</b><br>
-    stomachQId: ${surveyRef?.stomachQId ?? 'null'}<br>
-    emotionQId: ${surveyRef?.emotionQId ?? 'null'}<br>
-    sessions: ${JSON.stringify(sIds)}<br>
-    answers raw: ${JSON.stringify(ansRes.data?.slice(0,6) ?? [])}<br>
-    qIdKey: ${JSON.stringify(qIdKey)}<br>
-    answers mapped: ${JSON.stringify(answers.map(a => ({sid:a.session_id,qid:a.question_id,k:a.question?.key,v:a.value})))}<br>
-    stomachs ref: ${JSON.stringify(ref.stomachs)}<br>
-    emotions ref: ${JSON.stringify(ref.emotions)}
-  </div>`;
-
   if (!events.length && !tasks.length && !goals.length) {
     document.getElementById('daylog-body').innerHTML =
-      debugHtml + '<div class="empty-state" style="margin-top:80px;">Данных за сегодня нет</div>';
+      '<div class="empty-state" style="margin-top:80px;">Данных за сегодня нет</div>';
     return;
   }
 
@@ -235,7 +222,6 @@ async function loadDayLog() {
   const eventsHtml = events.map((ev, i) => dlRenderEvent(ev, ref, i === events.length - 1)).join('');
 
   document.getElementById('daylog-body').innerHTML = `
-    ${debugHtml}
     <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:16px;">${dateStr}</div>
     ${summaryHtml}
     <div class="dl-timeline">${eventsHtml}</div>
