@@ -51,9 +51,9 @@ async function loadDayLog() {
   const today = todayKey();
 
   const { data: sessions } = await sb.from('daily_survey_sessions')
-    .select('id, survey_id, created_at')
+    .select('id, survey_id, completed_at')
     .eq('user_id', currentUser.id).eq('date', today)
-    .order('created_at');
+    .order('completed_at');
 
   const sIds = (sessions || []).map(s => s.id);
 
@@ -118,7 +118,7 @@ async function loadDayLog() {
 
   (sessions || []).forEach(sess => events.push({
     type:         'survey',
-    time:         new Date(sess.created_at),
+    time:         new Date(sess.completed_at),
     surveyId:     sess.survey_id,
     answers:      answers.filter(a => a.session_id === sess.id),
     score:        scores.find(s => s.session_id === sess.id)?.value,
