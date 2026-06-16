@@ -56,7 +56,8 @@ let selectedTools = [];
 // Checkin state (surveys 2–6)
 let survey2Ans      = {};
 let s2SurveyId      = 2;
-let s2TomorrowGoals = []; // вечерний опрос: мини-цели на завтра
+let s2TomorrowGoals      = []; // вечерний опрос: мини-цели на завтра
+let forceUnlockedSurveys = new Set(); // id кнопок, разлоченных вручную
 
 let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 

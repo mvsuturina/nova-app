@@ -23,7 +23,7 @@ async function showSurvey() {
 
   surveyAns = {};
   selectedTools = [];
-  document.querySelector('#survey-screen .chat-title').textContent = 'УТРЕННИЙ ОПРОС';
+  document.querySelector('#survey-screen .chat-title').textContent = 'НАЧАЛО';
   setScreen('survey');
   renderSurveyStep();
 }
@@ -135,7 +135,8 @@ async function _openSurvey(surveyId) {
   survey2Ans      = {};
   s2SurveyId      = surveyId;
   s2TomorrowGoals = [];
-  document.querySelector('#survey-screen .chat-title').textContent = surveyId === 6 ? 'ВЕЧЕРНИЙ ОПРОС' : 'ЧЕКИН';
+  const SURVEY_TITLES = { 2: 'ЧЕКАП 7:00', 3: 'ЧЕКАП 10:00', 4: 'ЧЕКАП 13:00', 5: 'ЧЕКАП 16:00', 6: 'РЕФЛЕКСИЯ ДНЯ' };
+  document.querySelector('#survey-screen .chat-title').textContent = SURVEY_TITLES[surveyId] || 'ЧЕКАП';
   setScreen('survey');
   renderCheckinStep();
 }
