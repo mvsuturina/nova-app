@@ -58,7 +58,7 @@ async function loadDayLog() {
   const sIds = (sessions || []).map(s => s.id);
 
   const [ansRes, scoresRes, mealRes, activityRes, journalRes, tasksRes,
-         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes] = await Promise.all([
+         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes, emotionLogRes] = await Promise.all([
     sIds.length
       ? sb.from('daily_survey_answers')
           .select('session_id, question_id, value')
@@ -86,6 +86,9 @@ async function loadDayLog() {
     sb.from('sleeps').select('id, label'),
     sb.from('stomach_states').select('id, label'),
     sb.from('emotion_types').select('id, label'),
+    sb.from('emotion_log')
+      .select('session_id, note')
+      .eq('user_id', currentUser.id).eq('date', today).order('created_at'),
   ]);
 
   const ref = {
@@ -106,12 +109,13 @@ async function loadDayLog() {
     ...a,
     question: { key: qIdKey[String(a.question_id)] || null },
   }));
-  const scores     = scoresRes.data   || [];
-  const meals      = mealRes.data     || [];
-  const activities = activityRes.data || [];
-  const journals   = journalRes.data  || [];
-  const tasks      = tasksRes.data    || [];
-  const waters     = waterRes.data    || [];
+  const scores      = scoresRes.data      || [];
+  const meals       = mealRes.data        || [];
+  const activities  = activityRes.data    || [];
+  const journals    = journalRes.data     || [];
+  const tasks       = tasksRes.data       || [];
+  const waters      = waterRes.data       || [];
+  const emotionLogs = emotionLogRes.data  || [];
 
   // ── Строим события ────────────────────────────────────────
   const events = [];
@@ -123,6 +127,7 @@ async function loadDayLog() {
     answers:      answers.filter(a => a.session_id === sess.id),
     score:        scores.find(s => s.session_id === sess.id)?.value,
     sessionTasks: tasks.filter(t => t.session_id === sess.id),
+    emotionNote:  emotionLogs.find(e => e.session_id === sess.id)?.note || null,
   }));
 
   meals.forEach(m => events.push({
@@ -297,6 +302,7 @@ function dlRenderEvent(ev, ref, isLast) {
       <div class="dl-body">
         <div class="dl-title">${SURVEY_NAMES[ev.surveyId] || 'Опрос'}${scoreHtml}</div>
         ${chips ? `<div class="dl-chips">${chips}</div>` : ''}
+        ${ev.emotionNote ? `<div class="dl-journal-text" style="margin-top:6px;">${ev.emotionNote}</div>` : ''}
         ${texts}${toolsHtml}
       </div>
     </div>`;

@@ -271,12 +271,14 @@ async function _submitCheckin(surveyId) {
   }
   if (answers.length) await sb.from('daily_survey_answers').insert(answers);
 
-  if (emotion_note?.trim()) {
-    await sb.from('journal_entries').insert({
-      user_id: currentUser.id,
-      date:    today,
-      source:  'emotion_note',
-      text:    emotion_note,
+  // Сохраняем эмоцию и заметку в emotion_log (note + session_id + emotion_type_id)
+  if (emotion !== undefined) {
+    await sb.from('emotion_log').insert({
+      user_id:         currentUser.id,
+      date:            today,
+      emotion_type_id: emotion,
+      note:            emotion_note?.trim() || null,
+      session_id:      session.id,
     });
   }
 
