@@ -14,6 +14,7 @@ async function initApp() {
         dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
       };
       todayMealPhotos  = { breakfast: [], lunch: [], dinner: [] };
+      mealCarouselIdx  = { breakfast: 0,  lunch: 0,  dinner: 0  };
       todayActivity    = { warmup: false, workout: false, walk: false };
       todayToilet        = false;
       todayWork          = false;
@@ -254,6 +255,7 @@ async function debugResetDay() {
     dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
   };
   todayMealPhotos  = { breakfast: [], lunch: [], dinner: [] };
+  mealCarouselIdx  = { breakfast: 0,  lunch: 0,  dinner: 0  };
   todayActivity    = { warmup: false, workout: false, walk: false };
   todayToilet      = false;
   todayWork        = false;

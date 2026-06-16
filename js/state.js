@@ -20,7 +20,8 @@ let todayMeals = {
   lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
   dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
 };
-let todayMealPhotos = { breakfast: [], lunch: [], dinner: [] };
+let todayMealPhotos   = { breakfast: [], lunch: [], dinner: [] };
+let mealCarouselIdx   = { breakfast: 0,  lunch: 0,  dinner: 0  };
 let todayActivity   = { warmup: false, workout: false, walk: false };
 
 // Факты дня — туалет и работа (по умолчанию не сделано = +10 стресс каждый)

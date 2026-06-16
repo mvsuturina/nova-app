@@ -178,6 +178,8 @@ function renderTrackers() {
     const { label, window } = MEAL_WINDOWS[type];
     const meal   = todayMeals[type];
     const photos = todayMealPhotos[type] || [];
+    const idx    = mealCarouselIdx[type] || 0;
+    const photo  = photos[idx] || null;
 
     const qualityTag = meal.quality === 'plan'
       ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
@@ -185,24 +187,22 @@ function renderTrackers() {
       ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
       : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
 
-    const photoStrip = `
-      <div class="meal-photo-strip" onclick="event.stopPropagation()">
-        ${photos.map((url, i) => `
-          <div class="meal-thumb-wrap">
-            <img class="meal-thumb" src="${url}" onclick="openMealLightbox('${url}')">
-            <button class="meal-thumb-del" onclick="deleteMealPhoto('${type}',${i})">×</button>
-          </div>`).join('')}
-        ${photos.length < 3 ? `
-          <label class="meal-cam-add">
-            <input type="file" accept="image/*" style="display:none"
-                   onchange="handleMealPhotoFile('${type}',this)">
-            📷
-          </label>` : ''}
-      </div>`;
+    const dots = photos.length > 1
+      ? `<div class="meal-dots">${photos.map((_, i) =>
+          `<span class="meal-dot${i === idx ? ' active' : ''}"></span>`
+        ).join('')}</div>`
+      : '';
 
     return `
-      <div class="meal-card${meal.done ? ' done' : ''}" onclick="openMealModal('${type}')">
-        ${photoStrip}
+      <div class="meal-card${meal.done ? ' done' : ''}"
+           data-meal="${type}"
+           style="${photo ? `background-image:url('${photo}')` : ''}"
+           onclick="openMealModal('${type}')"
+           ontouchstart="mealTouchStart(event,'${type}')"
+           ontouchend="mealTouchEnd(event,'${type}')">
+        <div class="meal-card-overlay"></div>
+        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
+        ${dots}
         <div class="meal-card-label">
           <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label} ${qualityTag}</div>
@@ -332,6 +332,37 @@ async function logActivity(type) {
   await recalculateScore('activity_' + type);
 }
 
+// ── КАРУСЕЛЬ ФОТ В КАРТОЧКЕ ───────────────────────────────
+
+let _mealTouchX = null;
+
+function mealTouchStart(e, type) {
+  _mealTouchX = e.touches[0].clientX;
+}
+
+function mealTouchEnd(e, type) {
+  if (_mealTouchX === null) return;
+  const dx = e.changedTouches[0].clientX - _mealTouchX;
+  _mealTouchX = null;
+  const photos = todayMealPhotos[type] || [];
+  if (Math.abs(dx) < 40 || photos.length <= 1) return;
+  e.preventDefault(); // не открывать модал при свайпе
+  const cur = mealCarouselIdx[type] || 0;
+  mealCarouselIdx[type] = dx < 0
+    ? Math.min(cur + 1, photos.length - 1)
+    : Math.max(cur - 1, 0);
+  updateMealCarousel(type);
+}
+
+function updateMealCarousel(type) {
+  const photos = todayMealPhotos[type] || [];
+  const idx    = mealCarouselIdx[type] || 0;
+  const card   = document.querySelector(`.meal-card[data-meal="${type}"]`);
+  if (!card) return;
+  card.style.backgroundImage = photos[idx] ? `url('${photos[idx]}')` : '';
+  card.querySelectorAll('.meal-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+}
+
 // ── МОДАЛ ЕДЫ ─────────────────────────────────────────────
 
 let activeMealType = null;
@@ -366,8 +397,50 @@ function openMealModal(type) {
 
   document.getElementById('meal-modal-desc').value = meal.description || '';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
+  renderMealModalPhotos(type);
 
   document.getElementById('meal-modal').style.display = 'flex';
+}
+
+function renderMealModalPhotos(type) {
+  const el = document.getElementById('meal-modal-photos');
+  if (!el) return;
+  const photos = todayMealPhotos[type] || [];
+  el.innerHTML = `
+    <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Фото</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
+      ${photos.map((url, i) => `
+        <div style="position:relative;flex-shrink:0;">
+          <img src="${url}" onclick="openMealLightbox('${url}')"
+               style="width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;cursor:pointer;">
+          <button onclick="deleteMealPhotoFromModal('${type}',${i})"
+                  style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;
+                         background:rgba(0,0,0,0.85);border:none;border-radius:50%;color:white;
+                         font-size:12px;line-height:1;cursor:pointer;display:flex;
+                         align-items:center;justify-content:center;padding:0;">×</button>
+        </div>`).join('')}
+      ${photos.length < 3 ? `
+        <label style="width:76px;height:76px;background:var(--bg3);border-radius:10px;
+                      border:1px dashed var(--border);display:flex;align-items:center;
+                      justify-content:center;font-size:26px;cursor:pointer;flex-shrink:0;
+                      -webkit-tap-highlight-color:transparent;">
+          <input type="file" accept="image/*" style="display:none"
+                 onchange="handleMealPhotoFromModal('${type}',this)">
+          📷
+        </label>` : ''}
+    </div>`;
+}
+
+async function handleMealPhotoFromModal(type, input) {
+  await handleMealPhotoFile(type, input);
+  renderMealModalPhotos(type);
+}
+
+async function deleteMealPhotoFromModal(type, idx) {
+  await deleteMealPhoto(type, idx);
+  const len = (todayMealPhotos[type] || []).length;
+  if ((mealCarouselIdx[type] || 0) >= len) mealCarouselIdx[type] = Math.max(0, len - 1);
+  renderMealModalPhotos(type);
 }
 
 function closeMealModal() {
