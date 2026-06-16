@@ -162,27 +162,25 @@ function renderTrackers() {
     const done  = todayMeals[type];
     const photo = todayMealPhotos[type];
     const bgStyle = photo ? `background-image:url('${photo}')` : '';
-    const delBtn  = photo
-      ? `<button class="meal-del-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">✕</button>`
+    const delPhotoBtn = photo
+      ? `<button class="meal-del-photo-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">удалить фото</button>`
       : '';
-    const expandBtn = photo
-      ? `<button class="meal-expand-btn" onclick="event.stopPropagation();openMealLightbox('${photo}')">⤢</button>`
-      : '';
+    // Тап по карточке: есть фото → лайтбокс, нет фото → переключить статус
+    const cardClick = photo ? `openMealLightbox('${photo}')` : `logMeal('${type}')`;
     return `
-      <div class="meal-card${done ? ' done' : ''}" style="${bgStyle}" onclick="logMeal('${type}')">
+      <div class="meal-card${done ? ' done' : ''}" style="${bgStyle}" onclick="${cardClick}">
         <div class="meal-card-overlay"></div>
         ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-        ${delBtn}
         <label class="meal-cam-label" onclick="event.stopPropagation()">
           <input type="file" accept="image/*" style="display:none"
                  onchange="handleMealPhotoFile('${type}',this)">
           📷
         </label>
-        ${expandBtn}
-        <div class="meal-card-label">
+        <div class="meal-card-label" onclick="event.stopPropagation();logMeal('${type}')">
           <div class="meal-slot-icon">${done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label}</div>
           <div class="meal-slot-window">${window}</div>
+          ${delPhotoBtn}
         </div>
       </div>`;
   }).join('');
