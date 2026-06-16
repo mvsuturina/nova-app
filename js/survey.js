@@ -132,15 +132,47 @@ async function _openSurvey(surveyId) {
     };
   }
 
-  survey2Ans = {};
-  s2SurveyId = surveyId;
-  document.querySelector('#survey-screen .chat-title').textContent = 'ЧЕКИН';
+  survey2Ans      = {};
+  s2SurveyId      = surveyId;
+  s2TomorrowGoals = [];
+  document.querySelector('#survey-screen .chat-title').textContent = surveyId === 6 ? 'ВЕЧЕРНИЙ ОПРОС' : 'ЧЕКИН';
   setScreen('survey');
   renderCheckinStep();
 }
 
+const _textareaStyle = `width:100%;margin-top:10px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;
+  font-size:14px;resize:none;box-sizing:border-box;`;
+
 function renderCheckinStep() {
   const { stomachs, emotions } = surveyRef;
+  const isEvening = s2SurveyId === 6;
+
+  const eveningBlock = isEvening ? `
+    <div class="survey-question">
+      <div class="survey-q-text">Что получилось сегодня?</div>
+      <textarea id="eve-well" rows="2" placeholder="Любая мелочь считается..." style="${_textareaStyle}"
+        oninput="survey2Ans.eveningWell=this.value"></textarea>
+    </div>
+    <div class="survey-question">
+      <div class="survey-q-text">Что не получилось?</div>
+      <textarea id="eve-bad" rows="2" placeholder="Без осуждения, просто факт..." style="${_textareaStyle}"
+        oninput="survey2Ans.eveningBad=this.value"></textarea>
+    </div>
+    <div class="survey-question">
+      <div class="survey-q-text">Мини-цели на завтра</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input id="eve-goal-input" type="text" placeholder="Добавить цель..."
+          style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+                 padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;
+                 box-sizing:border-box;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTomorrowGoal();}">
+        <button onclick="addTomorrowGoal()"
+                style="background:var(--purple);border:none;border-radius:10px;padding:10px 16px;
+                       color:white;font-family:'Jost',sans-serif;font-size:18px;cursor:pointer;">+</button>
+      </div>
+      <div id="eve-goals-list" style="margin-top:8px;"></div>
+    </div>` : '';
 
   document.getElementById('survey-body').innerHTML = `
     <div class="survey-question">
@@ -160,15 +192,42 @@ function renderCheckinStep() {
           <div class="radio-label">${e.label}</div>
         </div>`).join('')}
       <textarea id="chk-emo-note" placeholder="Можешь написать подробнее..." rows="2"
-        style="width:100%;margin-top:10px;background:var(--bg2);border:1px solid var(--border);
-               border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;
-               font-size:14px;resize:none;box-sizing:border-box;"
+        style="${_textareaStyle}"
         oninput="survey2Ans.emotion_note=this.value"></textarea>
     </div>
+
+    ${eveningBlock}
 
     <button class="save-btn" id="survey2-submit" onclick="_submitCheckin(${s2SurveyId})" disabled
             style="margin-top:8px">ГОТОВО →</button>
   `;
+}
+
+function addTomorrowGoal() {
+  const input = document.getElementById('eve-goal-input');
+  const text = input.value.trim();
+  if (!text) return;
+  s2TomorrowGoals.push(text);
+  input.value = '';
+  renderTomorrowGoals();
+}
+
+function removeTomorrowGoal(idx) {
+  s2TomorrowGoals.splice(idx, 1);
+  renderTomorrowGoals();
+}
+
+function renderTomorrowGoals() {
+  const list = document.getElementById('eve-goals-list');
+  if (!list) return;
+  list.innerHTML = s2TomorrowGoals.map((g, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:8px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;">
+      <span style="font-size:14px;color:var(--text);">${g}</span>
+      <button onclick="removeTomorrowGoal(${i})"
+              style="background:none;border:none;color:var(--text-faint);cursor:pointer;
+                     font-size:16px;padding:0 4px;">×</button>
+    </div>`).join('');
 }
 
 function pickCheckinStomach(id) {
@@ -228,6 +287,20 @@ async function _submitCheckin(surveyId) {
     emotionWeight: emotionRow?.weight ?? 0,
     submittedAt:   new Date().toISOString(),
   };
+
+  if (surveyId === 6) {
+    const { eveningWell, eveningBad } = survey2Ans;
+    const reflections = [];
+    if (eveningWell?.trim()) reflections.push({ user_id: currentUser.id, date: today, source: 'evening_well', text: eveningWell });
+    if (eveningBad?.trim())  reflections.push({ user_id: currentUser.id, date: today, source: 'evening_bad',  text: eveningBad });
+    if (reflections.length) await sb.from('journal_entries').insert(reflections);
+
+    if (s2TomorrowGoals.length) {
+      await sb.from('mini_goals').insert(
+        s2TomorrowGoals.map(text => ({ user_id: currentUser.id, date: tomorrowKey(), text, is_done: false }))
+      );
+    }
+  }
 
   if (surveyId === 2) todaySurvey2Done = true;
   if (surveyId === 3) todaySurvey3Done = true;

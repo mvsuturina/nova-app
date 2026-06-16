@@ -54,8 +54,9 @@ let surveyAns     = {};
 let selectedTools = [];
 
 // Checkin state (surveys 2–6)
-let survey2Ans = {};
-let s2SurveyId = 2;
+let survey2Ans      = {};
+let s2SurveyId      = 2;
+let s2TomorrowGoals = []; // вечерний опрос: мини-цели на завтра
 
 let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
