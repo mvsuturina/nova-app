@@ -304,8 +304,9 @@ function dlRenderEvent(ev, ref, isLast) {
 
     const photosHtml = ev.photos.length
       ? `<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:2px;">
-          ${ev.photos.map(url =>
-            `<img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+          ${ev.photos.map((url, i) =>
+            `<img src="${url}" onclick="dlOpenPhoto(${JSON.stringify(ev.photos)},${i})"
+              style="width:110px;height:110px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;">`
           ).join('')}
         </div>`
       : '';
@@ -413,6 +414,80 @@ function dlRenderFooter(tasks, goals) {
 
   if (!tasksHtml && !goalsHtml) return '';
   return `<div class="dl-footer">${tasksHtml}${goalsHtml}</div>`;
+}
+
+// ── Лайтбокс фото ────────────────────────────────────────
+let _dlLbPhotos = [];
+let _dlLbIdx    = 0;
+
+function dlOpenPhoto(photos, idx) {
+  _dlLbPhotos = photos;
+  _dlLbIdx    = idx;
+
+  let overlay = document.getElementById('dl-lightbox');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'dl-lightbox';
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.94)',
+      'display:flex;align-items:center;justify-content:center',
+      'touch-action:none;user-select:none',
+    ].join(';');
+    overlay.innerHTML = `
+      <button onclick="dlCloseLb()" style="position:absolute;top:18px;right:20px;
+        background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;">×</button>
+      <button id="dl-lb-prev" onclick="dlLbNav(-1)" style="position:absolute;left:12px;
+        background:none;border:none;color:#fff;font-size:32px;cursor:pointer;padding:20px;">‹</button>
+      <img id="dl-lb-img" style="max-width:100%;max-height:90vh;object-fit:contain;border-radius:6px;">
+      <button id="dl-lb-next" onclick="dlLbNav(1)" style="position:absolute;right:12px;
+        background:none;border:none;color:#fff;font-size:32px;cursor:pointer;padding:20px;">›</button>
+      <div id="dl-lb-dots" style="position:absolute;bottom:24px;left:0;right:0;
+        display:flex;justify-content:center;gap:7px;"></div>`;
+    // Закрыть по тапу на фон
+    overlay.addEventListener('click', e => { if (e.target === overlay) dlCloseLb(); });
+    // Свайп
+    let sx = null;
+    overlay.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    overlay.addEventListener('touchend', e => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      sx = null;
+      if (Math.abs(dx) > 40) dlLbNav(dx < 0 ? 1 : -1);
+    });
+    document.body.appendChild(overlay);
+  }
+
+  overlay.style.display = 'flex';
+  dlLbRender();
+}
+
+function dlLbRender() {
+  document.getElementById('dl-lb-img').src = _dlLbPhotos[_dlLbIdx];
+  const prev = document.getElementById('dl-lb-prev');
+  const next = document.getElementById('dl-lb-next');
+  if (prev) prev.style.visibility = _dlLbIdx > 0 ? 'visible' : 'hidden';
+  if (next) next.style.visibility = _dlLbIdx < _dlLbPhotos.length - 1 ? 'visible' : 'hidden';
+  const dots = document.getElementById('dl-lb-dots');
+  if (dots && _dlLbPhotos.length > 1) {
+    dots.innerHTML = _dlLbPhotos.map((_, i) =>
+      `<div style="width:6px;height:6px;border-radius:50%;
+        background:${i === _dlLbIdx ? '#fff' : 'rgba(255,255,255,.35)'};"></div>`
+    ).join('');
+  } else if (dots) {
+    dots.innerHTML = '';
+  }
+}
+
+function dlLbNav(dir) {
+  const next = _dlLbIdx + dir;
+  if (next < 0 || next >= _dlLbPhotos.length) return;
+  _dlLbIdx = next;
+  dlLbRender();
+}
+
+function dlCloseLb() {
+  const overlay = document.getElementById('dl-lightbox');
+  if (overlay) overlay.style.display = 'none';
 }
 
 function dlToggleAudio(url, btn) {
