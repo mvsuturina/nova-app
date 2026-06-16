@@ -1,12 +1,13 @@
 // ── РАЗБОР СЧЁТА ─────────────────────────────────────────
 
+// SOURCE_LABELS использует SURVEY_NAMES из daylog.js для единообразия
 const SOURCE_LABELS = {
-  checkin_1:   'Начало',
-  checkin_2:   'Чекап 7:00',
-  checkin_3:   'Чекап 10:00',
-  checkin_4:   'Чекап 13:00',
-  checkin_5:   'Чекап 16:00',
-  checkin_6:   'Рефлексия дня',
+  checkin_1:   SURVEY_NAMES[1],
+  checkin_2:   SURVEY_NAMES[2],
+  checkin_3:   SURVEY_NAMES[3],
+  checkin_4:   SURVEY_NAMES[4],
+  checkin_5:   SURVEY_NAMES[5],
+  checkin_6:   SURVEY_NAMES[6],
   cycle_phase:       'Фаза цикла',
   fact_toilet:       'Туалет',
   fact_work:         'Работа',
