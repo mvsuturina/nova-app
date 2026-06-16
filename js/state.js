@@ -16,9 +16,9 @@ let todayWaterCount  = 0;
 
 // todayMeals: объект {done, quality, description, hungerBefore} для каждого приёма
 let todayMeals = {
-  breakfast: { done: false, quality: null, description: null, hungerBefore: null },
-  lunch:     { done: false, quality: null, description: null, hungerBefore: null },
-  dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+  breakfast: { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+  lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+  dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
 };
 let todayMealPhotos = { breakfast: null, lunch: null, dinner: null };
 let todayActivity   = { warmup: false, workout: false, walk: false };

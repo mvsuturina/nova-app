@@ -333,7 +333,7 @@ async function logActivity(type) {
 // ── МОДАЛ ЕДЫ ─────────────────────────────────────────────
 
 let activeMealType = null;
-let mealModalData  = { quality: null, hungerBefore: null, description: '' };
+let mealModalData = { quality: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null, description: '' };
 
 function openMealModal(type) {
   activeMealType = type;
@@ -341,9 +341,11 @@ function openMealModal(type) {
   const label = MEAL_WINDOWS[type].label;
 
   mealModalData = {
-    quality:     meal.quality     || null,
-    hungerBefore: meal.hungerBefore || null,
-    description: meal.description || '',
+    quality:         meal.quality         || null,
+    hungerBefore:    meal.hungerBefore    || null,
+    hungerAfter:     meal.hungerAfter     || null,
+    hungerAfterHour: meal.hungerAfterHour || null,
+    description:     meal.description    || '',
   };
 
   document.getElementById('meal-modal-title').textContent = label;
@@ -352,10 +354,13 @@ function openMealModal(type) {
   document.getElementById('mq-slip').classList.toggle('mq-selected', meal.quality === 'slip');
 
   document.querySelectorAll('[id^="mmh-"]').forEach(el => el.classList.remove('selected'));
-  if (meal.hungerBefore) {
-    const btn = document.getElementById('mmh-' + meal.hungerBefore);
-    if (btn) btn.classList.add('selected');
-  }
+  if (meal.hungerBefore) document.getElementById('mmh-' + meal.hungerBefore)?.classList.add('selected');
+
+  document.querySelectorAll('[id^="mah-"]').forEach(el => el.classList.remove('selected'));
+  if (meal.hungerAfter) document.getElementById('mah-' + meal.hungerAfter)?.classList.add('selected');
+
+  document.querySelectorAll('[id^="mhh-"]').forEach(el => el.classList.remove('selected'));
+  if (meal.hungerAfterHour) document.getElementById('mhh-' + meal.hungerAfterHour)?.classList.add('selected');
 
   document.getElementById('meal-modal-desc').value = meal.description || '';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
@@ -377,48 +382,55 @@ function setMealQuality(q) {
 function setMealHunger(v) {
   mealModalData.hungerBefore = mealModalData.hungerBefore === v ? null : v;
   document.querySelectorAll('[id^="mmh-"]').forEach(el => el.classList.remove('selected'));
-  if (mealModalData.hungerBefore !== null) {
-    const btn = document.getElementById('mmh-' + v);
-    if (btn) btn.classList.add('selected');
-  }
+  if (mealModalData.hungerBefore !== null) document.getElementById('mmh-' + v)?.classList.add('selected');
+}
+
+function setMealHungerAfter(v) {
+  mealModalData.hungerAfter = mealModalData.hungerAfter === v ? null : v;
+  document.querySelectorAll('[id^="mah-"]').forEach(el => el.classList.remove('selected'));
+  if (mealModalData.hungerAfter !== null) document.getElementById('mah-' + v)?.classList.add('selected');
+}
+
+function setMealHungerAfterHour(v) {
+  mealModalData.hungerAfterHour = mealModalData.hungerAfterHour === v ? null : v;
+  document.querySelectorAll('[id^="mhh-"]').forEach(el => el.classList.remove('selected'));
+  if (mealModalData.hungerAfterHour !== null) document.getElementById('mhh-' + v)?.classList.add('selected');
 }
 
 async function saveMealModal() {
   if (!activeMealType) return;
   const type = activeMealType;
   const today = todayKey();
-  const { quality, hungerBefore, description } = mealModalData;
+  const { quality, hungerBefore, hungerAfter, hungerAfterHour, description } = mealModalData;
 
   closeMealModal();
 
   const { data: existingMeal } = await sb.from('meal_log').select('id')
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type).maybeSingle();
 
+  const mealFields = {
+    quality:           quality          || null,
+    description:       description      || null,
+    hunger_before:     hungerBefore     || null,
+    hunger_after:      hungerAfter      || null,
+    hunger_after_hour: hungerAfterHour  || null,
+  };
+
   if (existingMeal) {
-    await sb.from('meal_log').update({
-      quality:      quality      || null,
-      description:  description  || null,
-      hunger_before: hungerBefore || null,
-    }).eq('id', existingMeal.id);
+    await sb.from('meal_log').update(mealFields).eq('id', existingMeal.id);
   } else {
     const h = new Date().getHours();
     const inWindow = { breakfast: h>=6&&h<8, lunch: h>=12&&h<14, dinner: h>=16&&h<18 }[type] ?? false;
-    await sb.from('meal_log').insert({
-      user_id:       currentUser.id,
-      date:          today,
-      meal_type:     type,
-      in_window:     inWindow,
-      quality:       quality     || null,
-      description:   description || null,
-      hunger_before: hungerBefore || null,
-    });
+    await sb.from('meal_log').insert({ user_id: currentUser.id, date: today, meal_type: type, in_window: inWindow, ...mealFields });
   }
 
   todayMeals[type] = {
-    done:        true,
-    quality:     quality     || null,
-    description: description || null,
-    hungerBefore: hungerBefore || null,
+    done:            true,
+    quality:         quality        || null,
+    description:     description    || null,
+    hungerBefore:    hungerBefore   || null,
+    hungerAfter:     hungerAfter    || null,
+    hungerAfterHour: hungerAfterHour || null,
   };
 
   renderTrackers();
@@ -439,7 +451,7 @@ async function deleteMealFromModal() {
   await sb.from('meal_log').delete()
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type);
 
-  todayMeals[type] = { done: false, quality: null, description: null, hungerBefore: null };
+  todayMeals[type] = { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null };
 
   closeMealModal();
   renderTrackers();
@@ -459,7 +471,7 @@ async function handleMealPhotoFile(mealType, input) {
     await sb.from('meal_log').insert({
       user_id: currentUser.id, date: today, meal_type: mealType, in_window: inWindow,
     });
-    todayMeals[mealType] = { done: true, quality: null, description: null, hungerBefore: null };
+    todayMeals[mealType] = { done: true, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null };
   }
 
   const path = `${currentUser.id}/${today}/${mealType}.jpg`;

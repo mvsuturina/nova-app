@@ -9,9 +9,9 @@ async function initApp() {
       todaySurvey5Done = false; todaySurvey6Done = false;
       todayMiniGoals   = [];
       todayMeals = {
-        breakfast: { done: false, quality: null, description: null, hungerBefore: null },
-        lunch:     { done: false, quality: null, description: null, hungerBefore: null },
-        dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+        breakfast: { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+        lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+        dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
       };
       todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
       todayActivity    = { warmup: false, workout: false, walk: false };
@@ -149,7 +149,7 @@ async function loadUserData() {
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
-      sb.from('meal_log').select('meal_type, quality, description, hunger_before, photo_url')
+      sb.from('meal_log').select('meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_url')
         .eq('user_id', currentUser.id).eq('date', today),
       sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
       sb.from('daily_tasks')
@@ -180,10 +180,12 @@ async function loadUserData() {
     for (const type of ['breakfast', 'lunch', 'dinner']) {
       const row = mealRows.find(m => m.meal_type === type);
       todayMeals[type] = {
-        done:        !!row,
-        quality:     row?.quality     || null,
-        description: row?.description || null,
-        hungerBefore: row?.hunger_before || null,
+        done:            !!row,
+        quality:         row?.quality           || null,
+        description:     row?.description       || null,
+        hungerBefore:    row?.hunger_before      || null,
+        hungerAfter:     row?.hunger_after       || null,
+        hungerAfterHour: row?.hunger_after_hour  || null,
       };
       todayMealPhotos[type] = row?.photo_url || null;
     }
@@ -247,9 +249,9 @@ async function debugResetDay() {
   todayJournal     = {};
   todayWaterCount  = 0;
   todayMeals = {
-    breakfast: { done: false, quality: null, description: null, hungerBefore: null },
-    lunch:     { done: false, quality: null, description: null, hungerBefore: null },
-    dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+    breakfast: { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+    lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
+    dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
   };
   todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
   todayActivity    = { warmup: false, workout: false, walk: false };
