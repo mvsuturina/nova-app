@@ -193,19 +193,24 @@ function renderTrackers() {
         ).join('')}</div>`
       : '';
 
+    // Без фото — весь блок открывает модал.
+    // С фото — только нижняя подпись открывает модал, сам блок только для свайпа.
+    const cardClick = photos.length === 0 ? `onclick="openMealModal('${type}')"` : '';
+
     return `
       <div class="meal-card${meal.done ? ' done' : ''}"
            data-meal="${type}"
            style="${photo ? `background-image:url('${photo}')` : ''}"
-           onclick="openMealModal('${type}')"
+           ${cardClick}
            ontouchstart="mealTouchStart(event,'${type}')"
            ontouchend="mealTouchEnd(event,'${type}')">
         <div class="meal-card-overlay"></div>
         ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
         ${dots}
-        <div class="meal-card-label">
+        <div class="meal-card-label" onclick="event.stopPropagation();openMealModal('${type}')">
           <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label} ${qualityTag}</div>
+          ${photos.length > 0 ? `<div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:3px;letter-spacing:1px;">нажми чтобы открыть ···</div>` : ''}
         </div>
       </div>`;
   }).join('');
