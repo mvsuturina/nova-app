@@ -6,10 +6,23 @@ async function initApp() {
       currentUser = null; profile = {}; messages = [];
       todayScore = null; dailyTasks = []; todayJournal = {};
       todaySurvey2Done = false; todaySurvey3Done = false; todaySurvey4Done = false;
-      todaySurvey5Done = false; todaySurvey6Done = false; todaySnapshot = null;
-      todayMiniGoals  = []; todayMealPhotos = { breakfast: null, lunch: null, dinner: null };
-      todayActivity   = { warmup: false, workout: false, walk: false };
-      userTimezone    = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      todaySurvey5Done = false; todaySurvey6Done = false;
+      todayMiniGoals   = [];
+      todayMeals = {
+        breakfast: { done: false, quality: null, description: null, hungerBefore: null },
+        lunch:     { done: false, quality: null, description: null, hungerBefore: null },
+        dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+      };
+      todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
+      todayActivity    = { warmup: false, workout: false, walk: false };
+      todayToilet      = false;
+      todayWork        = false;
+      todayCycleWeight = 0;
+      todaySleepWeight = 0;
+      todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+      survey2Ans       = {};
+      surveyRef        = null;
+      userTimezone     = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       setScreen('auth');
     }
   });
@@ -21,15 +34,14 @@ async function initApp() {
 
 async function loadUserData() {
   try {
-    const { data: pd } = await sb.from('profiles')
-      .select('*').eq('id', currentUser.id).maybeSingle();
+    // Профиль + часовой пояс
+    const { data: pd } = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
     if (pd) {
       profile = pd;
       if (pd.groq_api_key) localStorage.setItem('nova_api_key', pd.groq_api_key);
       if (pd.timezone && pd.timezone !== 'UTC') {
         userTimezone = pd.timezone;
       } else {
-        // Авто-определяем и сохраняем если не задан или остался дефолтный UTC
         const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (detected && detected !== 'UTC') {
           userTimezone = detected;
@@ -40,78 +52,142 @@ async function loadUserData() {
 
     const today = todayKey();
 
-    const { data: sd } = await sb.from('daily_scores')
-      .select('value')
-      .eq('user_id', currentUser.id)
-      .eq('date', today)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    todayScore = sd?.value ?? null;
-
-    const [s2check, s3check, s4check, s5check, s6check, snapScore, mgData] = await Promise.all([
-      sb.from('daily_survey_sessions').select('id')
-        .eq('user_id', currentUser.id).eq('date', today).eq('survey_id', 2).maybeSingle(),
-      sb.from('daily_survey_sessions').select('id')
-        .eq('user_id', currentUser.id).eq('date', today).eq('survey_id', 3).maybeSingle(),
-      sb.from('daily_survey_sessions').select('id')
-        .eq('user_id', currentUser.id).eq('date', today).eq('survey_id', 4).maybeSingle(),
-      sb.from('daily_survey_sessions').select('id')
-        .eq('user_id', currentUser.id).eq('date', today).eq('survey_id', 5).maybeSingle(),
-      sb.from('daily_survey_sessions').select('id')
-        .eq('user_id', currentUser.id).eq('date', today).eq('survey_id', 6).maybeSingle(),
-      sb.from('daily_scores')
-        .select('id, daily_score_snapshots(*)')
-        .eq('user_id', currentUser.id).eq('date', today)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      sb.from('mini_goals').select('id, text, is_done')
-        .eq('user_id', currentUser.id).eq('date', today)
-        .order('created_at', { ascending: true }),
+    // Справочники (нужны для расчёта весов)
+    const [pr, sl, ss, et, sq, eq] = await Promise.all([
+      sb.from('periods').select('id, label, weight').order('id'),
+      sb.from('sleeps').select('id, label, weight').order('id'),
+      sb.from('stomach_states').select('id, label, weight').order('id'),
+      sb.from('emotion_types').select('id, label, weight').order('id'),
+      sb.from('questions').select('id').eq('key', 'stomach').maybeSingle(),
+      sb.from('questions').select('id').eq('key', 'emotion').maybeSingle(),
     ]);
-    todaySurvey2Done = !!s2check.data;
-    todaySurvey3Done = !!s3check.data;
-    todaySurvey4Done = !!s4check.data;
-    todaySurvey5Done = !!s5check.data;
-    todaySurvey6Done = !!s6check.data;
-    todayMiniGoals = mgData.data || [];
-    todaySnapshot  = snapScore.data?.daily_score_snapshots?.[0] || null;
+    surveyRef = {
+      periods:     pr.data || [],
+      sleeps:      sl.data || [],
+      stomachs:    ss.data || [],
+      emotions:    et.data || [],
+      stomachQId:  sq.data?.id || null,
+      emotionQId:  eq.data?.id || null,
+    };
 
-    const { data: td } = await sb.from('daily_tasks')
-      .select('id, is_complete, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
+    // Сессии опросов за сегодня
+    const { data: sessions } = await sb.from('daily_survey_sessions')
+      .select('id, survey_id, created_at')
       .eq('user_id', currentUser.id)
       .eq('date', today)
       .order('created_at', { ascending: true });
-    dailyTasks = td || [];
 
-    const { data: je } = await sb.from('journal_entries')
-      .select('task_id, text, audio_url, source')
-      .eq('user_id', currentUser.id).eq('date', today);
-    todayJournal = Object.fromEntries((je || []).filter(e => e.task_id).map(e => [e.task_id, e]));
+    const s1Session      = (sessions || []).find(s => s.survey_id === 1);
+    const dynamicSessions = (sessions || []).filter(s => s.survey_id > 1);
 
-    const [waterRes, mealRes, actRes] = await Promise.all([
-      sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
-      sb.from('meal_log').select('meal_type, photo_url').eq('user_id', currentUser.id).eq('date', today),
+    todaySurvey2Done = dynamicSessions.some(s => s.survey_id === 2);
+    todaySurvey3Done = dynamicSessions.some(s => s.survey_id === 3);
+    todaySurvey4Done = dynamicSessions.some(s => s.survey_id === 4);
+    todaySurvey5Done = dynamicSessions.some(s => s.survey_id === 5);
+    todaySurvey6Done = dynamicSessions.some(s => s.survey_id === 6);
+
+    // Веса из утреннего опроса (цикл + сон + начальное состояние живота)
+    let s1StomachAns = null;
+    if (s1Session) {
+      const { data: s1Ans } = await sb.from('daily_survey_answers')
+        .select('question_id, value')
+        .eq('session_id', s1Session.id);
+
+      const cycleAns = (s1Ans || []).find(a => a.question_id === 1);
+      const sleepAns = (s1Ans || []).find(a => a.question_id === 2);
+      s1StomachAns   = (s1Ans || []).find(a => a.question_id === surveyRef.stomachQId);
+
+      if (cycleAns) {
+        const period = surveyRef.periods.find(p => p.id === parseInt(cycleAns.value));
+        todayCycleWeight = period?.weight ?? 0;
+      }
+      if (sleepAns) {
+        const sleep = surveyRef.sleeps.find(s => s.id === parseInt(sleepAns.value));
+        todaySleepWeight = sleep?.weight ?? 0;
+      }
+    }
+
+    // Динамика: берём последний чекин (2-6); если его нет — используем живот из опроса 1
+    const latestDynamic = dynamicSessions[dynamicSessions.length - 1];
+    if (latestDynamic) {
+      const { data: dynAns } = await sb.from('daily_survey_answers')
+        .select('question_id, value')
+        .eq('session_id', latestDynamic.id);
+
+      const stomachAns = (dynAns || []).find(a => a.question_id === surveyRef.stomachQId);
+      const emotionAns = (dynAns || []).find(a => a.question_id === surveyRef.emotionQId);
+
+      const stomachRow = stomachAns
+        ? surveyRef.stomachs.find(s => s.id === parseInt(stomachAns.value))
+        : null;
+      const emotionRow = emotionAns
+        ? surveyRef.emotions.find(e => e.id === parseInt(emotionAns.value))
+        : null;
+
+      todayDynamic = {
+        stomachWeight: stomachRow?.weight ?? 0,
+        emotionWeight: emotionRow?.weight ?? 0,
+        submittedAt:   latestDynamic.created_at,
+      };
+    } else if (s1StomachAns && s1Session) {
+      // Только утренний опрос пройден — берём живот оттуда
+      const stomachRow = surveyRef.stomachs.find(s => s.id === parseInt(s1StomachAns.value));
+      todayDynamic = {
+        stomachWeight: stomachRow?.weight ?? 0,
+        emotionWeight: 0,
+        submittedAt:   s1Session.created_at,
+      };
+    }
+
+    // Параллельно грузим активность, еду, воду, задачи
+    const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
+      sb.from('meal_log').select('meal_type, quality, description, hunger_before, photo_url')
+        .eq('user_id', currentUser.id).eq('date', today),
+      sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
+      sb.from('daily_tasks')
+        .select('id, is_complete, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
+        .eq('user_id', currentUser.id).eq('date', today).order('created_at', { ascending: true }),
+      sb.from('journal_entries')
+        .select('task_id, text, audio_url, source')
+        .eq('user_id', currentUser.id).eq('date', today),
+      sb.from('mini_goals').select('id, text, is_done')
+        .eq('user_id', currentUser.id).eq('date', today).order('created_at', { ascending: true }),
+      sb.from('daily_scores')
+        .select('value').eq('user_id', currentUser.id).eq('date', today)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
-    todayWaterCount = (waterRes.data || []).length;
-    const mealRows = mealRes.data || [];
-    todayMeals = {
-      breakfast: mealRows.some(m => m.meal_type === 'breakfast'),
-      lunch:     mealRows.some(m => m.meal_type === 'lunch'),
-      dinner:    mealRows.some(m => m.meal_type === 'dinner'),
-    };
-    todayMealPhotos = {
-      breakfast: mealRows.find(m => m.meal_type === 'breakfast')?.photo_url || null,
-      lunch:     mealRows.find(m => m.meal_type === 'lunch')?.photo_url     || null,
-      dinner:    mealRows.find(m => m.meal_type === 'dinner')?.photo_url    || null,
-    };
+
+    // Активность
     const actTypes = (actRes.data || []).map(a => a.activity_type);
+    todayToilet  = actTypes.includes('toilet');
+    todayWork    = actTypes.includes('work');
     todayActivity = {
       warmup:  actTypes.includes('warmup'),
       workout: actTypes.includes('workout'),
       walk:    actTypes.includes('walk'),
     };
 
+    // Еда
+    const mealRows = mealRes.data || [];
+    for (const type of ['breakfast', 'lunch', 'dinner']) {
+      const row = mealRows.find(m => m.meal_type === type);
+      todayMeals[type] = {
+        done:        !!row,
+        quality:     row?.quality     || null,
+        description: row?.description || null,
+        hungerBefore: row?.hunger_before || null,
+      };
+      todayMealPhotos[type] = row?.photo_url || null;
+    }
+
+    todayWaterCount = (waterRes.data || []).length;
+    dailyTasks      = td.data || [];
+    todayJournal    = Object.fromEntries((je.data || []).filter(e => e.task_id).map(e => [e.task_id, e]));
+    todayMiniGoals  = mgData.data || [];
+    todayScore      = sd.data?.value ?? null;
+
+    // Чат
     const { data: md } = await sb.from('chat_messages')
       .select('role, content')
       .eq('user_id', currentUser.id)
@@ -131,25 +207,10 @@ async function debugResetDay() {
   if (!confirm('Сбросить данные за сегодня?')) return;
   const today = todayKey();
 
-  await sb.from('journal_entries')
-    .delete().eq('user_id', currentUser.id).eq('date', today);
-
-  await sb.from('daily_survey_sessions')
-    .update({ daily_score_id: null })
-    .eq('user_id', currentUser.id).eq('date', today);
-
-  await sb.from('daily_scores')
-    .delete()
-    .eq('user_id', currentUser.id).eq('date', today);
-
-  await sb.from('daily_tasks')
-    .delete()
-    .eq('user_id', currentUser.id).eq('date', today);
-
-  await sb.from('daily_survey_sessions')
-    .delete()
-    .eq('user_id', currentUser.id).eq('date', today);
-
+  await sb.from('journal_entries').delete().eq('user_id', currentUser.id).eq('date', today);
+  await sb.from('daily_scores').delete().eq('user_id', currentUser.id).eq('date', today);
+  await sb.from('daily_tasks').delete().eq('user_id', currentUser.id).eq('date', today);
+  await sb.from('daily_survey_sessions').delete().eq('user_id', currentUser.id).eq('date', today);
   await Promise.all([
     sb.from('meal_log').delete().eq('user_id', currentUser.id).eq('date', today),
     sb.from('water_log').delete().eq('user_id', currentUser.id).eq('date', today),
@@ -157,23 +218,29 @@ async function debugResetDay() {
     sb.from('mini_goals').delete().eq('user_id', currentUser.id).eq('date', today),
   ]);
 
-  todayScore        = null;
-  dailyTasks        = [];
-  todaySurvey2Done  = false;
-  todaySurvey3Done  = false;
-  todaySurvey4Done  = false;
-  todaySurvey5Done  = false;
-  todaySurvey6Done  = false;
-  todaySnapshot     = null;
-  todayMiniGoals    = [];
-  todayJournal      = {};
-  todayWaterCount   = 0;
-  todayMeals        = { breakfast: false, lunch: false, dinner: false };
-  todayMealPhotos   = { breakfast: null, lunch: null, dinner: null };
-  todayActivity     = { warmup: false, workout: false, walk: false };
-  survey2Ans        = {};
-  survey2Photos     = {};
-  s2ActiveQuestions = [];
+  todayScore       = null;
+  dailyTasks       = [];
+  todaySurvey2Done = false;
+  todaySurvey3Done = false;
+  todaySurvey4Done = false;
+  todaySurvey5Done = false;
+  todaySurvey6Done = false;
+  todayMiniGoals   = [];
+  todayJournal     = {};
+  todayWaterCount  = 0;
+  todayMeals = {
+    breakfast: { done: false, quality: null, description: null, hungerBefore: null },
+    lunch:     { done: false, quality: null, description: null, hungerBefore: null },
+    dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+  };
+  todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
+  todayActivity    = { warmup: false, workout: false, walk: false };
+  todayToilet      = false;
+  todayWork        = false;
+  todayCycleWeight = 0;
+  todaySleepWeight = 0;
+  todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+  survey2Ans       = {};
   renderHome();
 }
 

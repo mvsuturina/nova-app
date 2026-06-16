@@ -118,7 +118,7 @@ async function loadDayLog() {
   events.sort((a, b) => a.time - b.time);
 
   // ── Сводка ──
-  const mealCount   = [todayMeals.breakfast, todayMeals.lunch, todayMeals.dinner].filter(Boolean).length;
+  const mealCount   = [todayMeals.breakfast, todayMeals.lunch, todayMeals.dinner].filter(m => m.done).length;
   const waterCount  = todayWaterCount;
   const workoutDone = todayActivity.workout ||
     tasks.some(t => t.is_complete && t.tool?.name === 'Тренировка');

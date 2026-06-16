@@ -1,5 +1,32 @@
 // ── РАЗБОР СЧЁТА ─────────────────────────────────────────
 
+const SOURCE_LABELS = {
+  checkin_1: 'Утренний опрос',
+  checkin_2: 'Утренний отчёт',
+  checkin_3: 'Чекин 10:00',
+  checkin_4: 'Чекин 14:00',
+  checkin_5: 'Чекин 16:00',
+  checkin_6: 'Вечерний отчёт',
+  fact_toilet:      'Туалет',
+  fact_work:        'Работа',
+  activity_warmup:  'Разминка',
+  activity_workout: 'Тренировка',
+  activity_walk:    'Прогулка',
+  meal_breakfast:   'Завтрак',
+  meal_lunch:       'Обед',
+  meal_dinner:      'Ужин',
+  meal_breakfast_removed: 'Завтрак удалён',
+  meal_lunch_removed:     'Обед удалён',
+  meal_dinner_removed:    'Ужин удалён',
+};
+
+function sourceLabel(source) {
+  if (!source) return '—';
+  if (SOURCE_LABELS[source]) return SOURCE_LABELS[source];
+  if (source.startsWith('task_')) return 'Задача выполнена';
+  return source;
+}
+
 async function showBreakdown() {
   if (todayScore === null) return;
   const el = document.getElementById('breakdown-overlay');
@@ -8,94 +35,121 @@ async function showBreakdown() {
     '<div class="empty-state" style="margin-top:60px;">Считаю...</div>';
 
   const today = todayKey();
-
-  const { data: sessions } = await sb.from('daily_survey_sessions')
-    .select('id').eq('user_id', currentUser.id).eq('date', today);
-
-  if (!sessions?.length) {
-    document.getElementById('breakdown-body').innerHTML =
-      '<div class="empty-state" style="margin-top:60px;">Нет данных за сегодня</div>';
-    return;
-  }
-
-  const sIds = sessions.map(s => s.id);
-
-  const [ansRes, periodsRes, sleepsRes, stomachsRes, emotionsRes] = await Promise.all([
-    sb.from('daily_survey_answers')
-      .select('value, answered_at, question:question_id(key, text, type, weight_yes, weight_no, weights_json, ref_table)')
-      .in('session_id', sIds).order('answered_at'),
-    sb.from('periods').select('id, label, weight'),
-    sb.from('sleeps').select('id, label, weight'),
-    sb.from('stomach_states').select('id, label, weight'),
-    sb.from('emotion_types').select('id, label, weight'),
-  ]);
-
-  const ref = {
-    periods:        periodsRes.data  || [],
-    sleeps:         sleepsRes.data   || [],
-    stomach_states: stomachsRes.data || [],
-    emotion_types:  emotionsRes.data || [],
-  };
-
-  const items = [];
-
-  for (const ans of (ansRes.data || [])) {
-    const q = ans.question;
-    if (!q) continue;
-
-    let delta = 0;
-    let valueLabel = '';
-
-    if (q.type === 'bool') {
-      delta      = ans.value === 'true' ? (q.weight_yes || 0) : (q.weight_no || 0);
-      valueLabel = ans.value === 'true' ? 'Да' : 'Нет';
-    } else if (q.type === 'scale') {
-      delta      = (q.weights_json || {})[ans.value] || 0;
-      valueLabel = ans.value + '/10';
-    } else if (q.type === 'radio' && q.ref_table) {
-      const row  = (ref[q.ref_table] || []).find(r => String(r.id) === ans.value);
-      delta      = row?.weight || 0;
-      valueLabel = row?.label  || ans.value;
-    } else {
-      continue;
-    }
-
-    if (delta === 0) continue;
-
-    items.push({ text: q.text, delta, valueLabel, key: q.key });
-  }
-
-  items.sort((a, b) => b.delta - a.delta);
-
   const zone  = getZone(todayScore);
   const zc    = { green: 'var(--green)', yellow: 'var(--gold)', red: 'var(--red)', catastrophe: 'var(--red)' };
   const color = zc[zone] || 'var(--text)';
 
+  // История пересчётов за сегодня
+  const { data: history } = await sb.from('daily_scores')
+    .select('value, source, created_at')
+    .eq('user_id', currentUser.id)
+    .eq('date', today)
+    .order('created_at', { ascending: true });
+
+  // ── Заголовок ──
   const totalHtml = `
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:10px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">Счёт сегодня</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;
+                margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:10px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">Счёт сейчас</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:${color};">${todayScore}</div>
     </div>`;
 
-  const rowsHtml = items.length ? items.map(item => {
-    const pos   = item.delta > 0;
-    const sign  = pos ? '+' : '';
-    const clr   = pos ? 'var(--red)' : 'var(--green)';
+  // ── История ──
+  const historyRows = (history || []).map(row => {
+    const timeStr = new Date(row.created_at).toLocaleTimeString('ru', {
+      timeZone: userTimezone, hour: '2-digit', minute: '2-digit',
+    });
+    const rz  = getZone(row.value);
+    const rc  = zc[rz] || 'var(--text-dim)';
+    return `<div class="bkd-row" style="padding:8px 0;">
+      <div style="font-size:11px;color:var(--text-faint);min-width:38px;flex-shrink:0;">${timeStr}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;
+                  color:${rc};min-width:44px;text-align:right;flex-shrink:0;">${row.value}</div>
+      <div style="flex:1;font-size:12px;color:var(--text-faint);padding-left:12px;">${sourceLabel(row.source)}</div>
+    </div>`;
+  }).join('');
+
+  const historyHtml = history?.length
+    ? `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
+                   margin-bottom:8px;">ИСТОРИЯ ДНЯ</div>
+       ${historyRows}
+       <div style="height:1px;background:var(--border);margin:16px 0;"></div>`
+    : '';
+
+  // ── Текущее состояние ──
+  const sectionHdr = (text) =>
+    `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
+                 margin:14px 0 6px;">${text}</div>`;
+
+  const bkdRow = (delta, label, note) => {
+    const pos  = delta > 0;
+    const sign = pos ? '+' : '';
+    const clr  = pos ? 'var(--red)' : 'var(--green)';
     return `<div class="bkd-row">
-      <div class="bkd-delta" style="color:${clr};">${sign}${item.delta}</div>
+      <div class="bkd-delta" style="color:${clr};">${sign}${delta}</div>
       <div class="bkd-info">
-        <div class="bkd-text">${item.text}</div>
-        <div class="bkd-val">${item.valueLabel}</div>
+        <div class="bkd-text">${label}</div>
+        ${note ? `<div class="bkd-val">${note}</div>` : ''}
       </div>
     </div>`;
-  }).join('') : '<div class="empty-state">Нет данных о вкладе факторов</div>';
+  };
+
+  let factRows = '';
+  if (todayCycleWeight) factRows += bkdRow(todayCycleWeight, 'Цикл', '');
+  if (todaySleepWeight) factRows += bkdRow(todaySleepWeight, 'Сон', '');
+  factRows += bkdRow(todayToilet ? -20 : 10, 'Туалет', todayToilet ? '✓ сделано' : '✗ не сделано');
+  factRows += bkdRow(todayWork   ? -20 : 10, 'Работа', todayWork   ? '✓ сделано' : '✗ не сделано');
+
+  let actRows = '';
+  if (todayActivity.warmup)  actRows += bkdRow(-10, 'Разминка',   '✓');
+  if (todayActivity.workout) actRows += bkdRow(-30, 'Тренировка', '✓');
+  if (todayActivity.walk)    actRows += bkdRow(-10, 'Прогулка',   '✓');
+
+  let mealRows = '';
+  const mealLabels = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин' };
+  for (const [type, label] of Object.entries(mealLabels)) {
+    const m = todayMeals[type];
+    if (m.quality === 'plan') mealRows += bkdRow(-10, label, 'по плану');
+    else if (m.quality === 'slip') mealRows += bkdRow(+10, label, 'срыв');
+  }
+
+  let dynRows = '';
+  let dynHdr  = '';
+  if (todayDynamic.submittedAt) {
+    const coeff = getCheckinCoefficient(todayDynamic.submittedAt);
+    const localTime = new Date(todayDynamic.submittedAt).toLocaleTimeString('ru', {
+      timeZone: userTimezone, hour: '2-digit', minute: '2-digit',
+    });
+    dynHdr = `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
+                          margin:14px 0 6px;">ДИНАМИКА · ${localTime} · ×${coeff.toFixed(2)}</div>`;
+    const sc = Math.round(todayDynamic.stomachWeight * coeff);
+    const ec = Math.round(todayDynamic.emotionWeight * coeff);
+    if (sc) dynRows += bkdRow(sc, 'Состояние живота', '');
+    if (ec) dynRows += bkdRow(ec, 'Эмоции', '');
+  }
+
+  let taskRows = '';
+  dailyTasks.filter(t => t.is_complete).forEach(task => {
+    const name = task.tool?.name || task.custom_name || 'Задача';
+    taskRows += bkdRow(-10, name, '✓ выполнено');
+  });
 
   const hint = `
-    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-faint);line-height:1.6;font-family:'Cormorant Garamond',serif;font-style:italic;">
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);
+                font-size:11px;color:var(--text-faint);line-height:1.6;
+                font-family:'Cormorant Garamond',serif;font-style:italic;">
       Красный — факторы которые поднимают стресс.<br>Зелёный — то что его снижает.
     </div>`;
 
-  document.getElementById('breakdown-body').innerHTML = totalHtml + rowsHtml + hint;
+  document.getElementById('breakdown-body').innerHTML =
+    totalHtml +
+    historyHtml +
+    sectionHdr('ФАКТЫ') + factRows +
+    (actRows  ? sectionHdr('АКТИВНОСТЬ') + actRows   : '') +
+    (mealRows ? sectionHdr('ЕДА')        + mealRows  : '') +
+    (dynRows  ? dynHdr + dynRows : '') +
+    (taskRows ? sectionHdr('ЗАДАЧИ') + taskRows : '') +
+    hint;
 }
 
 function closeBreakdown() {

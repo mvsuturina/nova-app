@@ -52,69 +52,30 @@ function renderScore() {
 
 function renderSurveyCta() {
   document.getElementById('survey-cta')?.remove();
-  document.getElementById('survey2-cta')?.remove();
-  document.getElementById('survey3-cta')?.remove();
-  document.getElementById('survey4-cta')?.remove();
-  document.getElementById('survey5-cta')?.remove();
-  document.getElementById('survey6-cta')?.remove();
+  ['2','3','4','5','6'].forEach(n => document.getElementById('survey' + n + '-cta')?.remove());
 
   const scroll = document.querySelector('.home-scroll');
   if (!scroll) return;
-  const ref = scroll.firstElementChild; // вставляем в самый верх
+  const ref = scroll.firstElementChild;
 
-  // Вставляем по порядку — каждый insertBefore(btn, ref) сдвигает вниз
-  if (todayScore === null) {
-    const btn = document.createElement('button');
-    btn.id = 'survey-cta'; btn.className = 'survey-cta';
-    btn.textContent = 'НАЧАТЬ УТРЕННИЙ ОПРОС →';
-    btn.onclick = showSurvey;
-    ref.parentNode.insertBefore(btn, ref);
-  }
+  const surveys = [
+    { id: 'survey-cta',  show: todayScore === null,   fn: 'showSurvey()',  label: 'НАЧАТЬ УТРЕННИЙ ОПРОС →', bg: '' },
+    { id: 'survey2-cta', show: !todaySurvey2Done, fn: 'showSurvey2()', label: 'УТРЕННИЙ ОТЧЁТ →',      bg: 'linear-gradient(135deg,#0f3460,#16213e)' },
+    { id: 'survey3-cta', show: !todaySurvey3Done, fn: 'showSurvey3()', label: 'ЧЕКИН В 10:00 →',       bg: 'linear-gradient(135deg,#0a2030,#071520)' },
+    { id: 'survey4-cta', show: !todaySurvey4Done, fn: 'showSurvey4()', label: 'ЧЕКИН В 14:00 →',       bg: 'linear-gradient(135deg,#0a1e30,#060f18)' },
+    { id: 'survey5-cta', show: !todaySurvey5Done, fn: 'showSurvey5()', label: 'ЧЕКИН В 16:00 →',       bg: 'linear-gradient(135deg,#0a1830,#050c18)' },
+    { id: 'survey6-cta', show: !todaySurvey6Done, fn: 'showSurvey6()', label: 'ВЕЧЕРНИЙ ОТЧЁТ →',      bg: 'linear-gradient(135deg,#1a0a30,#0d0518)' },
+  ];
 
-  if (!todaySurvey2Done) {
+  surveys.forEach(s => {
+    if (!s.show) return;
     const btn = document.createElement('button');
-    btn.id = 'survey2-cta'; btn.className = 'survey-cta';
-    btn.style.background = 'linear-gradient(135deg, #0f3460, #16213e)';
-    btn.textContent = 'УТРЕННИЙ ОТЧЁТ →';
-    btn.onclick = showSurvey2;
+    btn.id = s.id; btn.className = 'survey-cta';
+    if (s.bg) btn.style.background = s.bg;
+    btn.textContent = s.label;
+    btn.onclick = new Function(s.fn);
     ref.parentNode.insertBefore(btn, ref);
-  }
-
-  if (!todaySurvey3Done) {
-    const btn = document.createElement('button');
-    btn.id = 'survey3-cta'; btn.className = 'survey-cta';
-    btn.style.background = 'linear-gradient(135deg, #0a2030, #071520)';
-    btn.textContent = 'ЧЕКИН В 10:00 →';
-    btn.onclick = showSurvey3;
-    ref.parentNode.insertBefore(btn, ref);
-  }
-
-  if (!todaySurvey4Done) {
-    const btn = document.createElement('button');
-    btn.id = 'survey4-cta'; btn.className = 'survey-cta';
-    btn.style.background = 'linear-gradient(135deg, #0a1e30, #060f18)';
-    btn.textContent = 'ЧЕКИН В 14:00 →';
-    btn.onclick = showSurvey4;
-    ref.parentNode.insertBefore(btn, ref);
-  }
-
-  if (!todaySurvey5Done) {
-    const btn = document.createElement('button');
-    btn.id = 'survey5-cta'; btn.className = 'survey-cta';
-    btn.style.background = 'linear-gradient(135deg, #0a1830, #050c18)';
-    btn.textContent = 'ЧЕКИН В 16:00 →';
-    btn.onclick = showSurvey5;
-    ref.parentNode.insertBefore(btn, ref);
-  }
-
-  if (!todaySurvey6Done) {
-    const btn = document.createElement('button');
-    btn.id = 'survey6-cta'; btn.className = 'survey-cta';
-    btn.style.background = 'linear-gradient(135deg, #1a0a30, #0d0518)';
-    btn.textContent = 'ВЕЧЕРНИЙ ОТЧЁТ →';
-    btn.onclick = showSurvey6;
-    ref.parentNode.insertBefore(btn, ref);
-  }
+  });
 }
 
 function renderMiniGoals() {
@@ -148,27 +109,52 @@ const MEAL_WINDOWS = {
 };
 
 const ACTIVITY_SLOTS = {
-  warmup:  { label: 'Разминка',     hint: '15 мин' },
-  workout: { label: 'Тренировка',  hint: '60 мин' },
-  walk:    { label: 'Прогулка',    hint: 'с подкастом' },
+  warmup:  { label: 'Разминка',    hint: '−10' },
+  workout: { label: 'Тренировка',  hint: '−30' },
+  walk:    { label: 'Прогулка',    hint: '−10' },
 };
 
 function renderTrackers() {
   const container = document.getElementById('trackers-container');
   if (!container) return;
 
+  // Факты дня
+  const factsHtml = `
+    <div class="tracker-block">
+      <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">ФАКТЫ ДНЯ</div>
+      <div class="meal-row">
+        ${[
+          { key: 'toilet', label: 'Туалет', done: todayToilet },
+          { key: 'work',   label: 'Работа', done: todayWork   },
+        ].map(f => `
+          <button class="act-slot${f.done ? ' done' : ''}" onclick="toggleDayFact('${f.key}')" style="flex:1;">
+            <div class="act-slot-icon">${f.done ? '✓' : '○'}</div>
+            <div class="act-slot-name">${f.label}</div>
+            <div class="act-slot-hint">${f.done ? '−20' : '+10'}</div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+
+  // Карточки еды
   const meals = ['breakfast', 'lunch', 'dinner'].map(type => {
     const { label, window } = MEAL_WINDOWS[type];
-    const done  = todayMeals[type];
+    const meal  = todayMeals[type];
     const photo = todayMealPhotos[type];
     const bgStyle = photo ? `background-image:url('${photo}')` : '';
+    const cardClick = photo ? `openMealLightbox('${photo}')` : `openMealModal('${type}')`;
+
+    const qualityTag = meal.quality === 'plan'
+      ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
+      : meal.quality === 'slip'
+      ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
+      : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
+
     const delPhotoBtn = photo
       ? `<button class="meal-del-photo-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">удалить фото</button>`
       : '';
-    // Тап по карточке: есть фото → лайтбокс, нет фото → переключить статус
-    const cardClick = photo ? `openMealLightbox('${photo}')` : `logMeal('${type}')`;
+
     return `
-      <div class="meal-card${done ? ' done' : ''}" style="${bgStyle}" onclick="${cardClick}">
+      <div class="meal-card${meal.done ? ' done' : ''}" style="${bgStyle}" onclick="${cardClick}">
         <div class="meal-card-overlay"></div>
         ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
         <label class="meal-cam-label" onclick="event.stopPropagation()">
@@ -176,22 +162,16 @@ function renderTrackers() {
                  onchange="handleMealPhotoFile('${type}',this)">
           📷
         </label>
-        <div class="meal-card-label" onclick="event.stopPropagation();logMeal('${type}')">
-          <div class="meal-slot-icon">${done ? '✓' : '○'}</div>
-          <div class="meal-slot-name">${label}</div>
-          <div class="meal-slot-window">${window}</div>
+        <div class="meal-card-label" onclick="event.stopPropagation();openMealModal('${type}')">
+          <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
+          <div class="meal-slot-name">${label} ${qualityTag}</div>
           ${delPhotoBtn}
         </div>
       </div>`;
   }).join('');
 
-  const dots = Array.from({ length: 8 }, (_, i) =>
-    `<div class="water-dot${i < todayWaterCount ? ' filled' : ''}"></div>`
-  ).join('');
-
-  const mealCount = [todayMeals.breakfast, todayMeals.lunch, todayMeals.dinner].filter(Boolean).length;
-  const actCount  = ['warmup', 'workout', 'walk'].filter(t => todayActivity[t]).length;
-
+  // Активность
+  const actCount = ['warmup', 'workout', 'walk'].filter(t => todayActivity[t]).length;
   const activities = ['warmup', 'workout', 'walk'].map(type => {
     const { label, hint } = ACTIVITY_SLOTS[type];
     const done = todayActivity[type];
@@ -202,7 +182,15 @@ function renderTrackers() {
     </button>`;
   }).join('');
 
+  // Вода
+  const dots = Array.from({ length: 8 }, (_, i) =>
+    `<div class="water-dot${i < todayWaterCount ? ' filled' : ''}"></div>`
+  ).join('');
+
+  const mealCount = ['breakfast','lunch','dinner'].filter(t => todayMeals[t].done).length;
+
   container.innerHTML = `
+    ${factsHtml}
     <div class="tracker-block">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">ПРИЁМЫ ПИЩИ</div>
@@ -230,23 +218,30 @@ function renderTrackers() {
   `;
 }
 
-async function logMeal(mealType) {
+// ── ФАКТЫ ДНЯ (туалет + работа) ───────────────────────────
+
+async function toggleDayFact(key) {
   const today = todayKey();
-  if (todayMeals[mealType]) {
-    const { data } = await sb.from('meal_log').select('id')
-      .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', mealType)
+  const isDone = key === 'toilet' ? todayToilet : todayWork;
+
+  if (isDone) {
+    const { data } = await sb.from('activity_log').select('id')
+      .eq('user_id', currentUser.id).eq('date', today).eq('activity_type', key)
       .order('created_at', { ascending: false }).limit(1).maybeSingle();
-    if (data) await sb.from('meal_log').delete().eq('id', data.id);
-    todayMeals[mealType]       = false;
-    todayMealPhotos[mealType]  = null;
+    if (data) await sb.from('activity_log').delete().eq('id', data.id);
+    if (key === 'toilet') todayToilet = false;
+    else todayWork = false;
   } else {
-    const h = new Date().getHours();
-    const inWindow = { breakfast: h >= 6 && h < 8, lunch: h >= 12 && h < 14, dinner: h >= 16 && h < 18 }[mealType] ?? false;
-    await sb.from('meal_log').insert({ user_id: currentUser.id, date: today, meal_type: mealType, in_window: inWindow });
-    todayMeals[mealType] = true;
+    await sb.from('activity_log').insert({ user_id: currentUser.id, date: today, activity_type: key });
+    if (key === 'toilet') todayToilet = true;
+    else todayWork = true;
   }
+
   renderTrackers();
+  await recalculateScore('fact_' + key);
 }
+
+// ── АКТИВНОСТЬ ─────────────────────────────────────────────
 
 async function logActivity(type) {
   const today = todayKey();
@@ -261,22 +256,150 @@ async function logActivity(type) {
     todayActivity[type] = true;
   }
   renderTrackers();
+  await recalculateScore('activity_' + type);
+}
+
+// ── МОДАЛ ЕДЫ ─────────────────────────────────────────────
+
+let activeMealType = null;
+let mealModalData  = { quality: null, hungerBefore: null, description: '' };
+
+function openMealModal(type) {
+  activeMealType = type;
+  const meal  = todayMeals[type];
+  const label = MEAL_WINDOWS[type].label;
+
+  mealModalData = {
+    quality:     meal.quality     || null,
+    hungerBefore: meal.hungerBefore || null,
+    description: meal.description || '',
+  };
+
+  document.getElementById('meal-modal-title').textContent = label;
+
+  document.getElementById('mq-plan').classList.toggle('mq-selected', meal.quality === 'plan');
+  document.getElementById('mq-slip').classList.toggle('mq-selected', meal.quality === 'slip');
+
+  document.querySelectorAll('[id^="mmh-"]').forEach(el => el.classList.remove('selected'));
+  if (meal.hungerBefore) {
+    const btn = document.getElementById('mmh-' + meal.hungerBefore);
+    if (btn) btn.classList.add('selected');
+  }
+
+  document.getElementById('meal-modal-desc').value = meal.description || '';
+  document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
+
+  document.getElementById('meal-modal').style.display = 'flex';
+}
+
+function closeMealModal() {
+  document.getElementById('meal-modal').style.display = 'none';
+  activeMealType = null;
+}
+
+function setMealQuality(q) {
+  mealModalData.quality = mealModalData.quality === q ? null : q;
+  document.getElementById('mq-plan').classList.toggle('mq-selected', mealModalData.quality === 'plan');
+  document.getElementById('mq-slip').classList.toggle('mq-selected', mealModalData.quality === 'slip');
+}
+
+function setMealHunger(v) {
+  mealModalData.hungerBefore = mealModalData.hungerBefore === v ? null : v;
+  document.querySelectorAll('[id^="mmh-"]').forEach(el => el.classList.remove('selected'));
+  if (mealModalData.hungerBefore !== null) {
+    const btn = document.getElementById('mmh-' + v);
+    if (btn) btn.classList.add('selected');
+  }
+}
+
+async function saveMealModal() {
+  if (!activeMealType) return;
+  const type = activeMealType;
+  const today = todayKey();
+  const { quality, hungerBefore, description } = mealModalData;
+
+  closeMealModal();
+
+  const { data: existingMeal } = await sb.from('meal_log').select('id')
+    .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type).maybeSingle();
+
+  if (existingMeal) {
+    await sb.from('meal_log').update({
+      quality:      quality      || null,
+      description:  description  || null,
+      hunger_before: hungerBefore || null,
+    }).eq('id', existingMeal.id);
+  } else {
+    const h = new Date().getHours();
+    const inWindow = { breakfast: h>=6&&h<8, lunch: h>=12&&h<14, dinner: h>=16&&h<18 }[type] ?? false;
+    await sb.from('meal_log').insert({
+      user_id:       currentUser.id,
+      date:          today,
+      meal_type:     type,
+      in_window:     inWindow,
+      quality:       quality     || null,
+      description:   description || null,
+      hunger_before: hungerBefore || null,
+    });
+  }
+
+  todayMeals[type] = {
+    done:        true,
+    quality:     quality     || null,
+    description: description || null,
+    hungerBefore: hungerBefore || null,
+  };
+
+  renderTrackers();
+  await recalculateScore('meal_' + type);
+}
+
+async function deleteMealFromModal() {
+  if (!activeMealType) return;
+  const type  = activeMealType;
+  const today = todayKey();
+
+  if (todayMealPhotos[type]) {
+    const path = `${currentUser.id}/${today}/${type}.jpg`;
+    await sb.storage.from('meal-photos').remove([path]);
+    todayMealPhotos[type] = null;
+  }
+
+  await sb.from('meal_log').delete()
+    .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type);
+
+  todayMeals[type] = { done: false, quality: null, description: null, hungerBefore: null };
+
+  closeMealModal();
+  renderTrackers();
+  await recalculateScore('meal_' + type + '_removed');
 }
 
 async function handleMealPhotoFile(mealType, input) {
   const file = input.files[0];
   input.value = '';
   if (!file) return;
-  if (!todayMeals[mealType]) await logMeal(mealType);
+
   const today = todayKey();
-  const path  = `${currentUser.id}/${today}/${mealType}.jpg`;
+
+  if (!todayMeals[mealType].done) {
+    const h = new Date().getHours();
+    const inWindow = { breakfast: h>=6&&h<8, lunch: h>=12&&h<14, dinner: h>=16&&h<18 }[mealType] ?? false;
+    await sb.from('meal_log').insert({
+      user_id: currentUser.id, date: today, meal_type: mealType, in_window: inWindow,
+    });
+    todayMeals[mealType] = { done: true, quality: null, description: null, hungerBefore: null };
+  }
+
+  const path = `${currentUser.id}/${today}/${mealType}.jpg`;
   const { error } = await sb.storage.from('meal-photos').upload(path, file, { upsert: true });
   if (error) { console.error('photo upload:', error); return; }
+
   const { data: urlData } = sb.storage.from('meal-photos').getPublicUrl(path);
-  const url = urlData.publicUrl;
+  const url = urlData.publicUrl + '?t=' + Date.now();
   await sb.from('meal_log').update({ photo_url: url })
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', mealType);
-  todayMealPhotos[mealType] = url + '?t=' + Date.now();
+  todayMealPhotos[mealType] = url;
   renderTrackers();
 }
 
@@ -289,6 +412,18 @@ async function deleteMealPhoto(mealType) {
   todayMealPhotos[mealType] = null;
   renderTrackers();
 }
+
+function openMealLightbox(url) {
+  const lb = document.getElementById('photo-lightbox');
+  document.getElementById('photo-lightbox-img').src = url;
+  lb.classList.add('open');
+}
+
+function closeMealLightbox() {
+  document.getElementById('photo-lightbox').classList.remove('open');
+}
+
+// ── ВОДА ──────────────────────────────────────────────────
 
 async function addWater() {
   if (todayWaterCount >= 8) return;
@@ -309,6 +444,8 @@ async function removeWater() {
   todayWaterCount--;
   renderTrackers();
 }
+
+// ── ЗАДАЧИ ─────────────────────────────────────────────────
 
 function renderDailyTasks() {
   const container = document.getElementById('daily-tasks-list');
@@ -335,7 +472,7 @@ function renderDailyTasks() {
         <div class="task-text">${task.custom_name}</div>
         ${delBtn}
         <div class="task-meta">−10</div>`;
-      if (!task.is_complete) row.onclick = () => completeTask(task.id, -10);
+      if (!task.is_complete) row.onclick = () => completeTask(task.id);
     } else {
       const playBtn = (isJournal && task.is_complete)
         ? `<button onclick="event.stopPropagation();openJournal(${task.id},${task.tool.weight})"
@@ -348,14 +485,14 @@ function renderDailyTasks() {
         ${playBtn}
         <div class="task-meta">${task.tool.duration_min} мин</div>`;
       if (isJournal && !task.is_complete) row.onclick = () => openJournal(task.id, task.tool.weight);
-      else if (!isJournal && !task.is_complete) row.onclick = () => completeTask(task.id, task.tool.weight);
+      else if (!isJournal && !task.is_complete) row.onclick = () => completeTask(task.id);
     }
     container.appendChild(row);
   });
 }
 
 function toggleAddTask() {
-  const row = document.getElementById('add-task-row');
+  const row   = document.getElementById('add-task-row');
   const input = document.getElementById('add-task-input');
   const visible = row.style.display !== 'none';
   row.style.display = visible ? 'none' : 'block';
@@ -387,7 +524,7 @@ async function deleteCustomTask(taskId) {
   renderDailyTasks();
 }
 
-async function completeTask(taskId, toolWeight) {
+async function completeTask(taskId) {
   const task = dailyTasks.find(t => t.id === taskId);
   if (!task || task.is_complete) return;
 
@@ -396,29 +533,10 @@ async function completeTask(taskId, toolWeight) {
 
   await sb.from('daily_tasks').update({
     is_complete: true,
-    completed_at: new Date().toISOString()
+    completed_at: new Date().toISOString(),
   }).eq('id', taskId);
 
-  const newValue = Math.max(0, (todayScore ?? 0) + toolWeight);
-  await sb.from('daily_scores').insert({
-    user_id:   currentUser.id,
-    date:      todayKey(),
-    value:     newValue,
-    task_id:   taskId,
-    is_manual: false,
-  });
-  todayScore = newValue;
-  renderScore();
-}
-
-function openMealLightbox(url) {
-  const lb = document.getElementById('photo-lightbox');
-  document.getElementById('photo-lightbox-img').src = url;
-  lb.classList.add('open');
-}
-
-function closeMealLightbox() {
-  document.getElementById('photo-lightbox').classList.remove('open');
+  await recalculateScore('task_' + taskId);
 }
 
 function updateClock() {

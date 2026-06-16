@@ -11,14 +11,30 @@ let todaySurvey4Done = false;
 let todaySurvey5Done = false;
 let todaySurvey6Done = false;
 let todayMiniGoals   = [];
-let todaySnapshot    = null;
 let todayJournal     = {};
 let todayWaterCount  = 0;
-let todayMeals       = { breakfast: false, lunch: false, dinner: false };
-let todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
-let todayActivity    = { warmup: false, workout: false, walk: false };
 
-// Journal recording state
+// todayMeals: объект {done, quality, description, hungerBefore} для каждого приёма
+let todayMeals = {
+  breakfast: { done: false, quality: null, description: null, hungerBefore: null },
+  lunch:     { done: false, quality: null, description: null, hungerBefore: null },
+  dinner:    { done: false, quality: null, description: null, hungerBefore: null },
+};
+let todayMealPhotos = { breakfast: null, lunch: null, dinner: null };
+let todayActivity   = { warmup: false, workout: false, walk: false };
+
+// Факты дня — туалет и работа (по умолчанию не сделано = +10 стресс каждый)
+let todayToilet = false;
+let todayWork   = false;
+
+// Веса из утреннего опроса (цикл + сон)
+let todayCycleWeight = 0;
+let todaySleepWeight = 0;
+
+// Динамика из последнего чекина (живот + эмоции с коэффициентом)
+let todayDynamic = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+
+// Recording state
 let journalTaskId = null;
 let journalWeight = null;
 let mediaRecorder = null;
@@ -33,11 +49,9 @@ let surveyRef     = null;
 let surveyAns     = {};
 let selectedTools = [];
 
-// Survey 2 / 3 state (shared generic engine)
-let survey2Ans          = {};
-let survey2Photos       = {};  // File objects for meal photos pending upload
-let s2ActiveQuestions   = [];  // [{id, key, text, weight_yes, weight_no}, ...] — filtered by skip logic
-let s2SurveyId          = 2;   // which survey is currently active in the generic engine
+// Checkin state (surveys 2–6)
+let survey2Ans = {};
+let s2SurveyId = 2;
 
 let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
