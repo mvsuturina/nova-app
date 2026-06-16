@@ -6,17 +6,15 @@ async function showSurvey() {
     .eq('date', todayKey()).eq('survey_id', 1).maybeSingle();
   if (existing) { alert('Утренний опрос уже пройден сегодня'); return; }
 
-  // surveyRef уже загружен в loadUserData — просто на всякий случай догружаем если нет
-  if (!surveyRef?.periods?.length || !surveyRef?.stomachs?.length) {
-    const [pr, sl, ss, sq] = await Promise.all([
-      sb.from('periods').select('*').order('id'),
+  // surveyRef уже загружен в loadUserData — догружаем только что не хватает
+  if (!surveyRef?.sleeps?.length || !surveyRef?.stomachs?.length) {
+    const [sl, ss, sq] = await Promise.all([
       sb.from('sleeps').select('*').order('id'),
       sb.from('stomach_states').select('*').order('id'),
       sb.from('questions').select('id').eq('key', 'stomach').maybeSingle(),
     ]);
     surveyRef = {
       ...(surveyRef || {}),
-      periods:    pr.data || [],
       sleeps:     sl.data || [],
       stomachs:   ss.data || [],
       stomachQId: sq.data?.id || surveyRef?.stomachQId || null,
@@ -31,17 +29,8 @@ async function showSurvey() {
 }
 
 function renderSurveyStep() {
-  const { periods, sleeps } = surveyRef;
+  const { sleeps } = surveyRef;
   document.getElementById('survey-body').innerHTML = `
-    <div class="survey-question">
-      <div class="survey-q-text">День цикла?</div>
-      ${periods.map(p => `
-        <div class="radio-option" id="cyc-${p.id}" onclick="pickRadio('cycle_phase',${p.id},'cyc')">
-          <div class="radio-dot"></div>
-          <div class="radio-label">${p.label}</div>
-        </div>`).join('')}
-    </div>
-
     <div class="survey-question">
       <div class="survey-q-text">Сколько спала?</div>
       ${sleeps.map(s => `
@@ -73,9 +62,8 @@ function pickRadio(key, val, prefix) {
 }
 
 function checkSurveyReady() {
-  const ready = surveyAns.cycle_phase !== undefined
-             && surveyAns.sleep        !== undefined
-             && surveyAns.stomach      !== undefined;
+  const ready = surveyAns.sleep   !== undefined
+             && surveyAns.stomach  !== undefined;
   const btn = document.getElementById('survey-submit');
   if (btn) btn.disabled = !ready;
 }
@@ -85,8 +73,7 @@ async function submitSurvey() {
   btn.disabled = true; btn.textContent = 'Сохраняю...';
 
   const today = todayKey();
-  const { cycle_phase: periodId, sleep: sleepId, stomach: stomachId } = surveyAns;
-  const period     = surveyRef.periods.find(p => p.id === periodId);
+  const { sleep: sleepId, stomach: stomachId } = surveyAns;
   const sleep      = surveyRef.sleeps.find(s => s.id === sleepId);
   const stomachRow = surveyRef.stomachs.find(s => s.id === stomachId);
 
@@ -95,7 +82,6 @@ async function submitSurvey() {
     .select('id').single();
 
   const answers = [
-    { session_id: session.id, question_id: 1, value: String(periodId) },
     { session_id: session.id, question_id: 2, value: String(sleepId) },
   ];
   if (surveyRef.stomachQId && stomachId !== undefined) {
@@ -103,8 +89,7 @@ async function submitSurvey() {
   }
   await sb.from('daily_survey_answers').insert(answers);
 
-  todayCycleWeight = period?.weight ?? 0;
-  todaySleepWeight = sleep?.weight  ?? 0;
+  todaySleepWeight = sleep?.weight ?? 0;
   todayDynamic = {
     stomachWeight: stomachRow?.weight ?? 0,
     emotionWeight: todayDynamic.emotionWeight,

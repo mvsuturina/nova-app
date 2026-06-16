@@ -291,6 +291,25 @@
     </div>
   </div>
 
+  <!-- ── CYCLE MODAL ────────────────────────────────────── -->
+  <div id="cycle-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(8,7,15,0.85);" onclick="closeCycleModal()">
+    <div onclick="event.stopPropagation()"
+         style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+                width:100%;max-width:480px;background:var(--bg2);
+                border-radius:20px 20px 0 0;padding:24px 20px 40px;
+                border-top:1px solid var(--border);">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;
+                  color:var(--text);margin-bottom:20px;letter-spacing:2px;">ФАЗА ЦИКЛА</div>
+      <div id="cycle-modal-body"></div>
+      <button onclick="closeCycleModal()"
+              style="margin-top:16px;background:none;border:none;color:var(--text-faint);
+                     font-size:13px;font-family:'Jost',sans-serif;cursor:pointer;
+                     padding:8px;letter-spacing:1px;display:block;">
+        отмена
+      </button>
+    </div>
+  </div>
+
   <!-- ── JOURNAL OVERLAY ──────────────────────────────── -->
   <div id="journal-overlay" style="display:none;position:fixed;inset:0;background:rgba(8,7,15,0.97);z-index:200;flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--bg3);flex-shrink:0;">

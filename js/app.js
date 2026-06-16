@@ -15,10 +15,12 @@ async function initApp() {
       };
       todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
       todayActivity    = { warmup: false, workout: false, walk: false };
-      todayToilet      = false;
-      todayWork        = false;
-      todayCycleWeight = 0;
-      todaySleepWeight = 0;
+      todayToilet        = false;
+      todayWork          = false;
+      todayCyclePeriodId = null;
+      todayCycleLabel    = '';
+      todayCycleWeight   = 0;
+      todaySleepWeight   = 0;
       todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
       survey2Ans       = {};
       surveyRef        = null;
@@ -86,21 +88,26 @@ async function loadUserData() {
     todaySurvey5Done = dynamicSessions.some(s => s.survey_id === 5);
     todaySurvey6Done = dynamicSessions.some(s => s.survey_id === 6);
 
-    // Веса из утреннего опроса (цикл + сон + начальное состояние живота)
+    // Цикл из профиля (постоянный факт, меняется ~раз в неделю)
+    if (pd?.current_period_id) {
+      const period = surveyRef.periods.find(p => p.id === pd.current_period_id);
+      if (period) {
+        todayCyclePeriodId = period.id;
+        todayCycleLabel    = period.label;
+        todayCycleWeight   = period.weight;
+      }
+    }
+
+    // Веса из утреннего опроса (сон + начальное состояние живота)
     let s1StomachAns = null;
     if (s1Session) {
       const { data: s1Ans } = await sb.from('daily_survey_answers')
         .select('question_id, value')
         .eq('session_id', s1Session.id);
 
-      const cycleAns = (s1Ans || []).find(a => a.question_id === 1);
       const sleepAns = (s1Ans || []).find(a => a.question_id === 2);
       s1StomachAns   = (s1Ans || []).find(a => a.question_id === surveyRef.stomachQId);
 
-      if (cycleAns) {
-        const period = surveyRef.periods.find(p => p.id === parseInt(cycleAns.value));
-        todayCycleWeight = period?.weight ?? 0;
-      }
       if (sleepAns) {
         const sleep = surveyRef.sleeps.find(s => s.id === parseInt(sleepAns.value));
         todaySleepWeight = sleep?.weight ?? 0;
@@ -248,7 +255,7 @@ async function debugResetDay() {
   todayActivity    = { warmup: false, workout: false, walk: false };
   todayToilet      = false;
   todayWork        = false;
-  todayCycleWeight = 0;
+  // Цикл не сбрасываем — он из профиля, постоянный
   todaySleepWeight = 0;
   todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
   survey2Ans       = {};

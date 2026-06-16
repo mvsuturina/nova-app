@@ -27,8 +27,12 @@ let todayActivity   = { warmup: false, workout: false, walk: false };
 let todayToilet = false;
 let todayWork   = false;
 
-// Веса из утреннего опроса (цикл + сон)
-let todayCycleWeight = 0;
+// Цикл (постоянный факт из профиля, меняется ~раз в неделю)
+let todayCyclePeriodId = null;
+let todayCycleLabel    = '';
+let todayCycleWeight   = 0;
+
+// Сон (из утреннего опроса)
 let todaySleepWeight = 0;
 
 // Динамика из последнего чекина (живот + эмоции с коэффициентом)

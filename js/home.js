@@ -119,10 +119,20 @@ function renderTrackers() {
   if (!container) return;
 
   // Факты дня
+  const cycleSlot = `
+    <button class="act-slot${todayCyclePeriodId ? ' done' : ''}" onclick="openCycleModal()" style="flex:1;">
+      <div class="act-slot-icon" style="font-size:13px;">${todayCycleLabel ? '◉' : '○'}</div>
+      <div class="act-slot-name">Цикл</div>
+      <div class="act-slot-hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        ${todayCycleLabel || 'выбрать →'}
+      </div>
+    </button>`;
+
   const factsHtml = `
     <div class="tracker-block">
       <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">ФАКТЫ ДНЯ</div>
       <div class="meal-row">
+        ${cycleSlot}
         ${[
           { key: 'toilet', label: 'Туалет', done: todayToilet },
           { key: 'work',   label: 'Работа', done: todayWork   },
@@ -216,6 +226,39 @@ function renderTrackers() {
       <div class="water-dots">${dots}</div>
     </div>
   `;
+}
+
+// ── МОДАЛ ЦИКЛА ───────────────────────────────────────────
+
+function openCycleModal() {
+  if (!surveyRef?.periods?.length) return;
+  const body = document.getElementById('cycle-modal-body');
+  body.innerHTML = surveyRef.periods.map(p => `
+    <div class="radio-option${p.id === todayCyclePeriodId ? ' selected' : ''}"
+         onclick="saveCyclePhase(${p.id})">
+      <div class="radio-dot"></div>
+      <div class="radio-label">${p.label}</div>
+    </div>`).join('');
+  document.getElementById('cycle-modal').style.display = 'flex';
+}
+
+function closeCycleModal() {
+  document.getElementById('cycle-modal').style.display = 'none';
+}
+
+async function saveCyclePhase(periodId) {
+  const period = surveyRef.periods.find(p => p.id === periodId);
+  if (!period) return;
+
+  await sb.from('profiles').update({ current_period_id: periodId }).eq('id', currentUser.id);
+
+  todayCyclePeriodId = period.id;
+  todayCycleLabel    = period.label;
+  todayCycleWeight   = period.weight;
+
+  closeCycleModal();
+  renderTrackers();
+  await recalculateScore('cycle_phase');
 }
 
 // ── ФАКТЫ ДНЯ (туалет + работа) ───────────────────────────
