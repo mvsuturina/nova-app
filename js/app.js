@@ -208,6 +208,10 @@ async function debugResetDay() {
   const today = todayKey();
 
   await sb.from('journal_entries').delete().eq('user_id', currentUser.id).eq('date', today);
+  // Разрываем круговой FK перед удалением daily_scores
+  await sb.from('daily_survey_sessions')
+    .update({ daily_score_id: null })
+    .eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_scores').delete().eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_tasks').delete().eq('user_id', currentUser.id).eq('date', today);
   await sb.from('daily_survey_sessions').delete().eq('user_id', currentUser.id).eq('date', today);
