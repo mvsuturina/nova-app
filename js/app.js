@@ -13,7 +13,7 @@ async function initApp() {
         lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
         dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
       };
-      todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
+      todayMealPhotos  = { breakfast: [], lunch: [], dinner: [] };
       todayActivity    = { warmup: false, workout: false, walk: false };
       todayToilet        = false;
       todayWork          = false;
@@ -149,7 +149,7 @@ async function loadUserData() {
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
-      sb.from('meal_log').select('meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_url')
+      sb.from('meal_log').select('meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_urls')
         .eq('user_id', currentUser.id).eq('date', today),
       sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
       sb.from('daily_tasks')
@@ -187,7 +187,7 @@ async function loadUserData() {
         hungerAfter:     row?.hunger_after       || null,
         hungerAfterHour: row?.hunger_after_hour  || null,
       };
-      todayMealPhotos[type] = row?.photo_url || null;
+      todayMealPhotos[type] = row?.photo_urls || [];
     }
 
     todayWaterCount = (waterRes.data || []).length;
@@ -253,7 +253,7 @@ async function debugResetDay() {
     lunch:     { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
     dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null },
   };
-  todayMealPhotos  = { breakfast: null, lunch: null, dinner: null };
+  todayMealPhotos  = { breakfast: [], lunch: [], dinner: [] };
   todayActivity    = { warmup: false, workout: false, walk: false };
   todayToilet      = false;
   todayWork        = false;

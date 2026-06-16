@@ -176,10 +176,8 @@ function renderTrackers() {
   // Карточки еды
   const meals = ['breakfast', 'lunch', 'dinner'].map(type => {
     const { label, window } = MEAL_WINDOWS[type];
-    const meal  = todayMeals[type];
-    const photo = todayMealPhotos[type];
-    const bgStyle = photo ? `background-image:url('${photo}')` : '';
-    const cardClick = photo ? `openMealLightbox('${photo}')` : `openMealModal('${type}')`;
+    const meal   = todayMeals[type];
+    const photos = todayMealPhotos[type] || [];
 
     const qualityTag = meal.quality === 'plan'
       ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
@@ -187,23 +185,27 @@ function renderTrackers() {
       ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
       : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
 
-    const delPhotoBtn = photo
-      ? `<button class="meal-del-photo-btn" onclick="event.stopPropagation();deleteMealPhoto('${type}')">удалить фото</button>`
-      : '';
+    const photoStrip = `
+      <div class="meal-photo-strip" onclick="event.stopPropagation()">
+        ${photos.map((url, i) => `
+          <div class="meal-thumb-wrap">
+            <img class="meal-thumb" src="${url}" onclick="openMealLightbox('${url}')">
+            <button class="meal-thumb-del" onclick="deleteMealPhoto('${type}',${i})">×</button>
+          </div>`).join('')}
+        ${photos.length < 3 ? `
+          <label class="meal-cam-add">
+            <input type="file" accept="image/*" style="display:none"
+                   onchange="handleMealPhotoFile('${type}',this)">
+            📷
+          </label>` : ''}
+      </div>`;
 
     return `
-      <div class="meal-card${meal.done ? ' done' : ''}" style="${bgStyle}" onclick="${cardClick}">
-        <div class="meal-card-overlay"></div>
-        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-        <label class="meal-cam-label" onclick="event.stopPropagation()">
-          <input type="file" accept="image/*" style="display:none"
-                 onchange="handleMealPhotoFile('${type}',this)">
-          📷
-        </label>
-        <div class="meal-card-label" onclick="event.stopPropagation();openMealModal('${type}')">
+      <div class="meal-card${meal.done ? ' done' : ''}" onclick="openMealModal('${type}')">
+        ${photoStrip}
+        <div class="meal-card-label">
           <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
           <div class="meal-slot-name">${label} ${qualityTag}</div>
-          ${delPhotoBtn}
         </div>
       </div>`;
   }).join('');
@@ -442,11 +444,14 @@ async function deleteMealFromModal() {
   const type  = activeMealType;
   const today = todayKey();
 
-  if (todayMealPhotos[type]) {
-    const path = `${currentUser.id}/${today}/${type}.jpg`;
-    await sb.storage.from('meal-photos').remove([path]);
-    todayMealPhotos[type] = null;
+  const photosToDelete = todayMealPhotos[type] || [];
+  for (const url of photosToDelete) {
+    try {
+      const path = url.split('/meal-photos/')[1]?.split('?')[0];
+      if (path) await sb.storage.from('meal-photos').remove([decodeURIComponent(path)]);
+    } catch (e) {}
   }
+  todayMealPhotos[type] = [];
 
   await sb.from('meal_log').delete()
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type);
@@ -458,10 +463,25 @@ async function deleteMealFromModal() {
   await recalculateScore('meal_' + type + '_removed');
 }
 
+async function cropImageSquare(file, size = 600) {
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const sx   = (bitmap.width  - side) / 2;
+  const sy   = (bitmap.height - side) / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  canvas.getContext('2d').drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
+  bitmap.close();
+  return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+}
+
 async function handleMealPhotoFile(mealType, input) {
   const file = input.files[0];
   input.value = '';
   if (!file) return;
+
+  const photos = todayMealPhotos[mealType] || [];
+  if (photos.length >= 3) return;
 
   const today = todayKey();
 
@@ -474,25 +494,35 @@ async function handleMealPhotoFile(mealType, input) {
     todayMeals[mealType] = { done: true, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null };
   }
 
-  const path = `${currentUser.id}/${today}/${mealType}.jpg`;
-  const { error } = await sb.storage.from('meal-photos').upload(path, file, { upsert: true });
+  const blob = await cropImageSquare(file);
+  const path = `${currentUser.id}/${today}/${mealType}_${Date.now()}.jpg`;
+  const { error } = await sb.storage.from('meal-photos').upload(path, blob, { contentType: 'image/jpeg' });
   if (error) { console.error('photo upload:', error); return; }
 
   const { data: urlData } = sb.storage.from('meal-photos').getPublicUrl(path);
-  const url = urlData.publicUrl + '?t=' + Date.now();
-  await sb.from('meal_log').update({ photo_url: url })
+  const newPhotos = [...photos, urlData.publicUrl];
+  await sb.from('meal_log').update({ photo_urls: newPhotos })
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', mealType);
-  todayMealPhotos[mealType] = url;
+  todayMealPhotos[mealType] = newPhotos;
   renderTrackers();
 }
 
-async function deleteMealPhoto(mealType) {
-  const today = todayKey();
-  const path  = `${currentUser.id}/${today}/${mealType}.jpg`;
-  await sb.storage.from('meal-photos').remove([path]);
-  await sb.from('meal_log').update({ photo_url: null })
+async function deleteMealPhoto(mealType, idx) {
+  const photos = [...(todayMealPhotos[mealType] || [])];
+  const today  = todayKey();
+  const url    = photos[idx];
+
+  if (url) {
+    try {
+      const path = url.split('/meal-photos/')[1]?.split('?')[0];
+      if (path) await sb.storage.from('meal-photos').remove([decodeURIComponent(path)]);
+    } catch (e) { console.warn('storage delete:', e); }
+  }
+
+  photos.splice(idx, 1);
+  await sb.from('meal_log').update({ photo_urls: photos.length ? photos : null })
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', mealType);
-  todayMealPhotos[mealType] = null;
+  todayMealPhotos[mealType] = photos;
   renderTrackers();
 }
 
