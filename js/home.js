@@ -174,7 +174,7 @@ function renderTrackers() {
         ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
         ${delBtn}
         <label class="meal-cam-label" onclick="event.stopPropagation()">
-          <input type="file" accept="image/*" capture="environment" style="display:none"
+          <input type="file" accept="image/*" style="display:none"
                  onchange="handleMealPhotoFile('${type}',this)">
           📷
         </label>
