@@ -61,17 +61,25 @@ async function showBreakdown() {
     i === 0 || row.value !== arr[i - 1].value
   );
 
-  const historyRows = filteredHistory.map(row => {
+  const historyRows = filteredHistory.map((row, i, arr) => {
     const timeStr = new Date(row.created_at).toLocaleTimeString('ru', {
       timeZone: userTimezone, hour: '2-digit', minute: '2-digit',
     });
     const rz = getZone(row.value);
     const rc = zc[rz] || 'var(--text-dim)';
+    const delta = i > 0 ? row.value - arr[i - 1].value : null;
+    const dStr  = delta !== null ? (delta > 0 ? '+' + delta : String(delta)) : '—';
+    const dClr  = delta === null ? 'var(--text-faint)'
+                : delta > 0     ? 'var(--red)'
+                : delta < 0     ? 'var(--green)'
+                :                 'var(--text-faint)';
     return `<div class="bkd-row" style="padding:8px 0;">
       <div style="font-size:11px;color:var(--text-faint);min-width:38px;flex-shrink:0;">${timeStr}</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;
                   color:${rc};min-width:44px;text-align:right;flex-shrink:0;">${row.value}</div>
-      <div style="flex:1;font-size:12px;color:var(--text-faint);padding-left:12px;">${sourceLabel(row.source)}</div>
+      <div style="font-size:13px;font-weight:500;color:${dClr};min-width:36px;
+                  text-align:center;flex-shrink:0;">${dStr}</div>
+      <div style="flex:1;font-size:12px;color:var(--text-faint);padding-left:8px;">${sourceLabel(row.source)}</div>
     </div>`;
   }).join('');
 

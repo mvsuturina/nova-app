@@ -66,7 +66,7 @@ async function loadDayLog() {
           .in('session_id', sIds).order('id')
       : Promise.resolve({ data: [] }),
     sb.from('daily_scores')
-      .select('value, session_id').eq('user_id', currentUser.id).eq('date', today)
+      .select('value, source').eq('user_id', currentUser.id).eq('date', today)
       .order('created_at'),
     sb.from('meal_log')
       .select('meal_type, quality, description, photo_urls, hunger_before, hunger_after, hunger_after_hour, created_at')
@@ -102,6 +102,21 @@ async function loadDayLog() {
     emotions: emotionsRes.data || [],
   };
 
+  // Матчинг скоров к опросам по source (session_id в daily_scores не заполняется)
+  const scoresBySource = {};
+  (scoresRes.data || []).forEach(s => {
+    const src = s.source || '';
+    if (!scoresBySource[src]) scoresBySource[src] = [];
+    scoresBySource[src].push(s.value);
+  });
+  const sourceUsage = {};
+  const getSessionScore = (surveyId) => {
+    const src = surveyId === 7 ? 'sos' : 'checkin_' + surveyId;
+    const idx = sourceUsage[src] || 0;
+    sourceUsage[src] = idx + 1;
+    return scoresBySource[src]?.[idx] ?? null;
+  };
+
   // Маппинг question_id → ключ.
   // Используем surveyRef (уже загружен в app.js) — это те же IDs, по которым сохраняются ответы.
   // sleep в survey 1 сохраняется с хардкодом question_id=2.
@@ -130,7 +145,7 @@ async function loadDayLog() {
     time:         new Date(sess.completed_at),
     surveyId:     sess.survey_id,
     answers:      answers.filter(a => a.session_id === sess.id),
-    score:        scores.find(s => s.session_id === sess.id)?.value,
+    score:        getSessionScore(sess.survey_id),
     sessionTasks: tasks.filter(t => t.session_id === sess.id),
     emotionNote:  emotionLogs.find(e => e.session_id === sess.id)?.note || null,
     sosEvent:     sosEvents.find(e => e.session_id === sess.id) || null,
@@ -176,6 +191,15 @@ async function loadDayLog() {
   }));
 
   events.sort((a, b) => a.time - b.time);
+
+  // Считаем дельту скора для каждого опроса
+  let prevSurveyScore = null;
+  events.forEach(ev => {
+    if (ev.type === 'survey' && ev.score !== null) {
+      ev.scoreDelta = prevSurveyScore !== null ? ev.score - prevSurveyScore : null;
+      prevSurveyScore = ev.score;
+    }
+  });
 
   // ── Сводка ─────────────────────────────────────────────
   const mealCount  = ['breakfast', 'lunch', 'dinner'].filter(t => todayMeals[t].done).length;
@@ -254,8 +278,14 @@ function dlRenderEvent(ev, ref, isLast) {
   if (ev.type === 'survey') {
     const zone = ev.score != null ? getZone(ev.score) : null;
     const zc   = { green: 'var(--green)', yellow: 'var(--gold)', red: 'var(--red)', catastrophe: 'var(--red)' };
+    const deltaHtml = (zone && ev.scoreDelta !== null)
+      ? `<span style="font-size:11px;font-weight:500;margin-left:4px;
+                      color:${ev.scoreDelta > 0 ? 'var(--red)' : ev.scoreDelta < 0 ? 'var(--green)' : 'var(--text-faint)'};">
+           ${ev.scoreDelta > 0 ? '+' : ''}${ev.scoreDelta}
+         </span>`
+      : '';
     const scoreHtml = zone
-      ? `&thinsp;<span style="color:${zc[zone]};font-weight:500;">${Math.max(0, ev.score)}</span>&thinsp;<span style="color:${zc[zone]};font-size:9px;letter-spacing:1px;">${ZONE_LABELS[zone]}</span>`
+      ? `&thinsp;<span style="color:${zc[zone]};font-weight:500;">${Math.max(0, ev.score)}</span>${deltaHtml}&thinsp;<span style="color:${zc[zone]};font-size:9px;letter-spacing:1px;">${ZONE_LABELS[zone]}</span>`
       : '';
 
     const chipAns = ev.answers.filter(a => {
