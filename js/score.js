@@ -22,11 +22,13 @@ const ZONE_DESCS = {
   catastrophe: 'Надо всё бросить и перевести дух.',
 };
 
-// ── КОЭФФИЦИЕНТ ЧЕКАПА ────────────────────────────────────
-// Привязан к номеру опроса, а не ко времени:
-//   Начало (1) + Чекап 7:00 (2)  → 0    (утро, нет влияния на скор)
+// ── КОЭФФИЦИЕНТ ЭМОЦИЙ ────────────────────────────────────
+// Эмоции накапливаются и влияют сильнее к вечеру.
+// Привязан к номеру опроса:
+//   Начало (1) + Чекап 7:00 (2)  → 0    (утро, стрессовый след ещё не накоплен)
 //   Чекап 10:00 (3) + 13:00 (4)  → 1.25
 //   Чекап 16:00 (5) + Рефлексия (6) → 1.5
+// Живот коэффициента НЕ имеет — это текущее физическое состояние, всегда полный вес.
 
 function getCheckinCoefficient(surveyId) {
   if (!surveyId || surveyId <= 2) return 0;
@@ -61,15 +63,15 @@ async function recalculateScore(source) {
     else if (m.quality === 'slip') s += 10;
   }
 
-  // Эмоции — накопительно (след остаётся весь день)
+  // Живот — только последнее значение, полный вес без коэффициента
+  // (физическое состояние сейчас, одинаково значимо утром и вечером)
+  if (todayDynamic?.surveyId) {
+    s += todayDynamic.stomachWeight;
+  }
+  // Эмоции — накопительно, с коэффициентом (след остаётся, вечером весомее)
   for (const c of todayCheckins) {
     const coeff = getCheckinCoefficient(c.surveyId);
     s += Math.round(c.emotionWeight * coeff);
-  }
-  // Живот — только последнее значение (текущее состояние)
-  if (todayDynamic?.surveyId) {
-    const coeff = getCheckinCoefficient(todayDynamic.surveyId);
-    s += Math.round(todayDynamic.stomachWeight * coeff);
   }
 
   // Выполненные задачи

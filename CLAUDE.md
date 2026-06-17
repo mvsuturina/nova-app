@@ -48,8 +48,8 @@ s = todayCycleWeight
   + (workout ? -30 : 0)
   + (walk    ? -10 : 0)
   + Σ meals: plan→-10, slip→+10
-  + todayDynamic.stomachWeight × coeff          ← последний чекин (живот — текущее состояние)
-  + Σ todayCheckins: round(emotionWeight × coeff) ← все чекины (эмоции — накопительно)
+  + todayDynamic.stomachWeight                   ← последний чекин (живот — полный вес, без коэффициента)
+  + Σ todayCheckins: round(emotionWeight × coeff) ← все чекины (эмоции — накопительно, с коэффициентом)
   - completedTasks × 10
 ```
 

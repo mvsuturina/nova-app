@@ -76,10 +76,10 @@ async function loadUserData() {
 
     // Сессии опросов за сегодня
     const { data: sessions } = await sb.from('daily_survey_sessions')
-      .select('id, survey_id, created_at')
+      .select('id, survey_id, completed_at')
       .eq('user_id', currentUser.id)
       .eq('date', today)
-      .order('created_at', { ascending: true });
+      .order('completed_at', { ascending: true });
 
     const s1Session      = (sessions || []).find(s => s.survey_id === 1);
     const dynamicSessions = (sessions || []).filter(s => s.survey_id > 1);

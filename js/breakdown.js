@@ -126,17 +126,16 @@ async function showBreakdown() {
     if (activeCheckins.length > 0) {
       dynHdr = `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
                             margin:14px 0 6px;">ДИНАМИКА</div>`;
-      // Живот — только последний чекин
-      if (todayDynamic?.surveyId) {
-        const coeff = getCheckinCoefficient(todayDynamic.surveyId);
-        const sc = Math.round(todayDynamic.stomachWeight * coeff);
-        if (sc) dynRows += bkdRow(sc, 'Живот · ' + (SURVEY_NAMES[todayDynamic.surveyId] || ''), 'последнее');
+      // Живот — последнее значение, полный вес
+      if (todayDynamic?.surveyId && todayDynamic.stomachWeight) {
+        const name = SURVEY_NAMES[todayDynamic.surveyId] || '';
+        dynRows += bkdRow(todayDynamic.stomachWeight, 'Живот · ' + name, 'текущее');
       }
-      // Эмоции — каждый чекин отдельно
+      // Эмоции — каждый чекин отдельно, с коэффициентом
       activeCheckins.forEach(c => {
         const coeff = getCheckinCoefficient(c.surveyId);
         const ec = Math.round(c.emotionWeight * coeff);
-        if (ec) dynRows += bkdRow(ec, 'Эмоция · ' + (SURVEY_NAMES[c.surveyId] || ''), '');
+        if (ec) dynRows += bkdRow(ec, 'Эмоция · ' + (SURVEY_NAMES[c.surveyId] || ''), '×' + coeff);
       });
     }
   }

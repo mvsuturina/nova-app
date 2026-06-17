@@ -90,11 +90,12 @@ async function submitSurvey() {
   await sb.from('daily_survey_answers').insert(answers);
 
   todaySleepWeight = sleep?.weight ?? 0;
-  todayDynamic = {
-    stomachWeight: stomachRow?.weight ?? 0,
-    emotionWeight: todayDynamic.emotionWeight,
-    submittedAt:   new Date().toISOString(),
-  };
+
+  // Добавляем опрос 1 в историю чекинов (coeff=0, не влияет на скор напрямую,
+  // но todayDynamic нужен для корректного определения последнего состояния живота)
+  const s1Checkin = { stomachWeight: stomachRow?.weight ?? 0, emotionWeight: 0, surveyId: 1 };
+  todayCheckins = [s1Checkin, ...todayCheckins.filter(c => c.surveyId !== 1)];
+  todayDynamic  = s1Checkin;
 
   await recalculateScore('checkin_1');
 
