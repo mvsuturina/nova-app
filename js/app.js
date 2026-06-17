@@ -22,7 +22,8 @@ async function initApp() {
       todayCycleLabel    = '';
       todayCycleWeight   = 0;
       todaySleepWeight   = 0;
-      todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+      todayDynamic     = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
+      todayCheckins    = [];
       survey2Ans       = {};
       surveyRef        = null;
       userTimezone     = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -115,36 +116,33 @@ async function loadUserData() {
       }
     }
 
-    // Динамика: берём последний чекин (2-6); если его нет — используем живот из опроса 1
-    const latestDynamic = dynamicSessions[dynamicSessions.length - 1];
-    if (latestDynamic) {
-      const { data: dynAns } = await sb.from('daily_survey_answers')
-        .select('question_id, value')
-        .eq('session_id', latestDynamic.id);
+    // Динамика: накопительно загружаем все чекины 2-6 одним запросом
+    todayCheckins = [];
+    if (dynamicSessions.length > 0) {
+      const { data: allDynAns } = await sb.from('daily_survey_answers')
+        .select('session_id, question_id, value')
+        .in('session_id', dynamicSessions.map(s => s.id));
 
-      const stomachAns = (dynAns || []).find(a => a.question_id === surveyRef.stomachQId);
-      const emotionAns = (dynAns || []).find(a => a.question_id === surveyRef.emotionQId);
+      todayCheckins = dynamicSessions.map(sess => {
+        const sessAns    = (allDynAns || []).filter(a => a.session_id === sess.id);
+        const stomachAns = sessAns.find(a => a.question_id === surveyRef.stomachQId);
+        const emotionAns = sessAns.find(a => a.question_id === surveyRef.emotionQId);
+        const stomachRow = stomachAns ? surveyRef.stomachs.find(s => s.id === parseInt(stomachAns.value)) : null;
+        const emotionRow = emotionAns ? surveyRef.emotions.find(e => e.id === parseInt(emotionAns.value)) : null;
+        return {
+          stomachWeight: stomachRow?.weight ?? 0,
+          emotionWeight: emotionRow?.weight ?? 0,
+          surveyId:      sess.survey_id,
+        };
+      });
 
-      const stomachRow = stomachAns
-        ? surveyRef.stomachs.find(s => s.id === parseInt(stomachAns.value))
-        : null;
-      const emotionRow = emotionAns
-        ? surveyRef.emotions.find(e => e.id === parseInt(emotionAns.value))
-        : null;
-
-      todayDynamic = {
-        stomachWeight: stomachRow?.weight ?? 0,
-        emotionWeight: emotionRow?.weight ?? 0,
-        submittedAt:   latestDynamic.created_at,
-      };
+      todayDynamic = todayCheckins[todayCheckins.length - 1];
     } else if (s1StomachAns && s1Session) {
-      // Только утренний опрос пройден — берём живот оттуда
+      // Только утренний опрос — живот без эмоции, коэфф 0 (не влияет на скор)
       const stomachRow = surveyRef.stomachs.find(s => s.id === parseInt(s1StomachAns.value));
-      todayDynamic = {
-        stomachWeight: stomachRow?.weight ?? 0,
-        emotionWeight: 0,
-        submittedAt:   s1Session.created_at,
-      };
+      const c = { stomachWeight: stomachRow?.weight ?? 0, emotionWeight: 0, surveyId: 1 };
+      todayCheckins = [c];
+      todayDynamic  = c;
     }
 
     // Параллельно грузим активность, еду, воду, задачи
@@ -261,7 +259,8 @@ async function debugResetDay() {
   todayWork        = false;
   // Цикл не сбрасываем — он из профиля, постоянный
   todaySleepWeight = 0;
-  todayDynamic     = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+  todayDynamic     = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
+  todayCheckins    = [];
   survey2Ans       = {};
   renderHome();
 }

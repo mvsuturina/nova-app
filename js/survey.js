@@ -285,11 +285,13 @@ async function _submitCheckin(surveyId) {
   const stomachRow = surveyRef.stomachs.find(s => s.id === stomach);
   const emotionRow = surveyRef.emotions.find(e => e.id === emotion);
 
-  todayDynamic = {
+  const checkin = {
     stomachWeight: stomachRow?.weight ?? 0,
     emotionWeight: emotionRow?.weight ?? 0,
-    submittedAt:   new Date().toISOString(),
+    surveyId:      surveyId,
   };
+  todayCheckins = [...todayCheckins.filter(c => c.surveyId !== surveyId), checkin];
+  todayDynamic  = checkin;
 
   if (surveyId === 6) {
     const { eveningWell, eveningBad } = survey2Ans;

@@ -121,17 +121,24 @@ async function showBreakdown() {
 
   let dynRows = '';
   let dynHdr  = '';
-  if (todayDynamic.submittedAt) {
-    const coeff = getCheckinCoefficient(todayDynamic.submittedAt);
-    const localTime = new Date(todayDynamic.submittedAt).toLocaleTimeString('ru', {
-      timeZone: userTimezone, hour: '2-digit', minute: '2-digit',
-    });
-    dynHdr = `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
-                          margin:14px 0 6px;">ДИНАМИКА · ${localTime} · ×${coeff.toFixed(2)}</div>`;
-    const sc = Math.round(todayDynamic.stomachWeight * coeff);
-    const ec = Math.round(todayDynamic.emotionWeight * coeff);
-    if (sc) dynRows += bkdRow(sc, 'Состояние живота', '');
-    if (ec) dynRows += bkdRow(ec, 'Эмоции', '');
+  if (todayCheckins.length > 0) {
+    const activeCheckins = todayCheckins.filter(c => getCheckinCoefficient(c.surveyId) > 0);
+    if (activeCheckins.length > 0) {
+      dynHdr = `<div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;
+                            margin:14px 0 6px;">ДИНАМИКА</div>`;
+      // Живот — только последний чекин
+      if (todayDynamic?.surveyId) {
+        const coeff = getCheckinCoefficient(todayDynamic.surveyId);
+        const sc = Math.round(todayDynamic.stomachWeight * coeff);
+        if (sc) dynRows += bkdRow(sc, 'Живот · ' + (SURVEY_NAMES[todayDynamic.surveyId] || ''), 'последнее');
+      }
+      // Эмоции — каждый чекин отдельно
+      activeCheckins.forEach(c => {
+        const coeff = getCheckinCoefficient(c.surveyId);
+        const ec = Math.round(c.emotionWeight * coeff);
+        if (ec) dynRows += bkdRow(ec, 'Эмоция · ' + (SURVEY_NAMES[c.surveyId] || ''), '');
+      });
+    }
   }
 
   let taskRows = '';

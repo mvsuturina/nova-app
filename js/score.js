@@ -22,23 +22,16 @@ const ZONE_DESCS = {
   catastrophe: 'Надо всё бросить и перевести дух.',
 };
 
-// ── КОЭФФИЦИЕНТ ВРЕМЕНИ ────────────────────────────────────
-// Динамические факторы (живот, эмоции) влияют сильнее ближе к вечеру
+// ── КОЭФФИЦИЕНТ ЧЕКАПА ────────────────────────────────────
+// Привязан к номеру опроса, а не ко времени:
+//   Начало (1) + Чекап 7:00 (2)  → 0    (утро, нет влияния на скор)
+//   Чекап 10:00 (3) + 13:00 (4)  → 1.25
+//   Чекап 16:00 (5) + Рефлексия (6) → 1.5
 
-function getCheckinCoefficient(submittedAtISO) {
-  const hour = parseInt(
-    new Date(submittedAtISO).toLocaleString('en-CA', {
-      timeZone: userTimezone,
-      hour: 'numeric',
-      hour12: false,
-    })
-  );
-  if (hour < 9)  return 1.0;
-  if (hour < 12) return 1.1;
-  if (hour < 15) return 1.25;
-  if (hour < 18) return 1.35;
-  if (hour < 21) return 1.5;
-  return 1.6;
+function getCheckinCoefficient(surveyId) {
+  if (!surveyId || surveyId <= 2) return 0;
+  if (surveyId <= 4) return 1.25;
+  return 1.5;
 }
 
 // ── ПЕРЕСЧЁТ СКОРА ────────────────────────────────────────
@@ -68,11 +61,15 @@ async function recalculateScore(source) {
     else if (m.quality === 'slip') s += 10;
   }
 
-  // Динамика с коэффициентом по времени
-  if (todayDynamic.submittedAt) {
-    const coeff = getCheckinCoefficient(todayDynamic.submittedAt);
+  // Эмоции — накопительно (след остаётся весь день)
+  for (const c of todayCheckins) {
+    const coeff = getCheckinCoefficient(c.surveyId);
+    s += Math.round(c.emotionWeight * coeff);
+  }
+  // Живот — только последнее значение (текущее состояние)
+  if (todayDynamic?.surveyId) {
+    const coeff = getCheckinCoefficient(todayDynamic.surveyId);
     s += Math.round(todayDynamic.stomachWeight * coeff);
-    s += Math.round(todayDynamic.emotionWeight * coeff);
   }
 
   // Выполненные задачи

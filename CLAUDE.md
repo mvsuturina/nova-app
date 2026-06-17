@@ -9,27 +9,87 @@
 ```
 index.html          — HTML-скелет, подключает скрипты в порядке ниже
 css/style.css       — все стили
-js/state.js         — глобальные переменные (sb, currentUser, todayScore, ...)
-js/score.js         — getZone(), ZONE_LABELS, ZONE_DESCS
+js/state.js         — глобальные переменные (sb, currentUser, todayScore, todayCheckins, ...)
+js/score.js         — getZone(), getCheckinCoefficient(), recalculateScore()
+js/daylog.js        — лог дня (SURVEY_NAMES const, loadDayLog, лайтбокс фото)
+js/breakdown.js     — разбор скора (использует SURVEY_NAMES из daylog.js)
 js/home.js          — renderHome(), renderScore(), renderSurveyCta(), задачи
-js/survey.js        — оба опроса + выбор практик
+js/survey.js        — опрос 1 (утро) + чекины 2-6 (_submitCheckin)
 js/chat.js          — чат с NOVA (Groq API)
 js/journal.js       — голосовой/текстовый дневник
 js/auth.js          — вход/регистрация/настройка профиля
 js/app.js           — initApp(), loadUserData(), debugResetDay()
 config.js           — SUPABASE_URL, SUPABASE_ANON_KEY
-schema.sql          — полная схема БД (идемпотентный DROP+CREATE)
+schema.sql          — полная схема БД (только документация, не применять целиком)
 ```
 
+> **ВАЖНО**: `daylog.js` загружается раньше `breakdown.js` — константа `SURVEY_NAMES` объявлена в daylog.js и используется в breakdown.js. Порядок тегов `<script>` в index.html нельзя менять.
+
 ## Архитектура скора
-- `daily_scores` — лог пересчётов, текущий скор = последняя строка за сегодня
-- `daily_score_snapshots` — полный снимок модели при каждом опросе (переносит поля из предыдущего)
-- Зоны: green < 45, yellow 45–64, red 65–99, catastrophe ≥ 100
+
+### Хранение
+- `daily_scores` — лог каждого пересчёта (user_id, date, value, source, session_id). Текущий скор = последняя строка за сегодня
+- `daily_survey_sessions` — одна строка на каждый пройденный опрос/чекин. Колонка времени: **`completed_at`** (не `created_at` — её нет!)
+- `daily_survey_answers` — ответы на вопросы (session_id, question_id, value как text). Для живота и эмоций вопросы берутся из таблицы `questions` по ключам 'stomach' и 'emotion' (`surveyRef.stomachQId`, `surveyRef.emotionQId`). Сон — hardcoded `question_id=2`
+- `emotion_log` — текстовая заметка к эмоции (emotion_type_id, note, session_id). Заметки сохраняются сюда, **не** в `journal_entries` (CHECK constraint там не пропускает source='emotion_note')
+
+### Зоны
+- green < 45 (включая отрицательные), yellow 45–64, red 65–99, catastrophe ≥ 100
 - Вес положительный = стресс растёт, отрицательный = снижается
+- `renderScore()` показывает `Math.max(0, todayScore)`, но внутреннее значение может быть отрицательным
+
+### Формула recalculateScore()
+```
+s = todayCycleWeight
+  + todaySleepWeight
+  + (toilet ? -20 : +10)
+  + (work   ? -20 : +10)
+  + (warmup  ? -10 : 0)
+  + (workout ? -30 : 0)
+  + (walk    ? -10 : 0)
+  + Σ meals: plan→-10, slip→+10
+  + todayDynamic.stomachWeight × coeff          ← последний чекин (живот — текущее состояние)
+  + Σ todayCheckins: round(emotionWeight × coeff) ← все чекины (эмоции — накопительно)
+  - completedTasks × 10
+```
+
+### Накопительные чекины (`todayCheckins`)
+- `todayCheckins: Array<{stomachWeight, emotionWeight, surveyId}>` — глобальный массив в state.js
+- Каждый чекин (survey_id 2-6) добавляет своё слагаемое к скору. Последний чекин не заменяет предыдущие — они **суммируются**
+- Защита от дубля в памяти: если `_submitCheckin` вызывается дважды с одним `surveyId` (технический сбой), второй вызов заменяет первый элемент в массиве, а не добавляет новый. На практике не происходит — кнопка чекина исчезает после `todaySurveyNDone = true`
+- `todayDynamic` = последний чекин (для отображения в UI)
+- Загружается в `loadUserData()` одним батч-запросом по всем session_id
+
+### Коэффициенты чекинов (`getCheckinCoefficient(surveyId)`)
+Привязаны к номеру опроса, **не** к часовому поясу:
+| surveyId | Название | Коэффициент |
+|----------|----------|-------------|
+| 1 | Начало | 0 |
+| 2 | Чекап 7:00 | 0 |
+| 3 | Чекап 10:00 | 1.25 |
+| 4 | Чекап 13:00 | 1.25 |
+| 5 | Чекап 16:00 | 1.5 |
+| 6 | Рефлексия дня | 1.5 |
+
+### Веса справочников (текущие в БД)
+**emotion_types:**
+- нейтрально: 0, радость: 15, любовь: 15, грусть: 15, гнев: 20, страх: 20
+
+**stomach_states:**
+- норм: 0, тяжесть: 25, дискомфорт: 30, сильная тяжесть и дискомфорт: 40
+
+---
+
+### Правило: при изменении скора обновить ОБА экрана
+
+Если меняешь что-то в логике скора или добавляешь новый фактор — нужно обновить **три места**:
+1. `score.js` — формула `recalculateScore()`
+2. `daylog.js` — отображение в логе дня (чипы, константы `DL_ANS_LABEL`)
+3. `breakdown.js` — разбор скора (строки `bkdRow`)
 
 ## Опросы
-- **Опрос 1** (`survey_id=1`): утренний, частично hardcoded в `renderSurveyStep()` — цикл, сон, туалет, голод
-- **Опрос 2** (`survey_id=2`): DB-driven, вопросы из `survey_question_assignments`, рендерится generic
+- **Опрос 1** (`survey_id=1`): утренний, hardcoded — цикл, сон, туалет, живот
+- **Чекины 2-6** (`survey_id=2..6`): динамика — живот + эмоция + заметка. Рендерит `showCheckin()` / `_submitCheckin()`
 
 ### Как работает generic движок (Опрос 2)
 1. `showSurvey2()` читает `survey_question_assignments` JOIN `questions` (поля: `id, key, text, type, weight_yes, weight_no, weights_json`)

@@ -36,8 +36,10 @@ let todayCycleWeight   = 0;
 // Сон (из утреннего опроса)
 let todaySleepWeight = 0;
 
-// Динамика из последнего чекина (живот + эмоции с коэффициентом)
-let todayDynamic = { stomachWeight: 0, emotionWeight: 0, submittedAt: null };
+// Последний чекин (для отображения в UI)
+let todayDynamic = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
+// История всех чекинов дня (для накопительного скора)
+let todayCheckins = [];
 
 // Recording state
 let journalTaskId = null;
