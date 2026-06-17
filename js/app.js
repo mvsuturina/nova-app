@@ -24,6 +24,7 @@ async function initApp() {
       todaySleepWeight   = 0;
       todayDynamic     = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
       todayCheckins    = [];
+      todayEventDeltas = [];
       survey2Ans       = {};
       surveyRef        = null;
       userTimezone     = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -145,6 +146,16 @@ async function loadUserData() {
       todayDynamic  = c;
     }
 
+    // SOS-события за сегодня
+    const { data: sosEvData } = await sb.from('sos_events')
+      .select('session_id, score_delta, description')
+      .eq('user_id', currentUser.id).eq('date', today);
+    todayEventDeltas = (sosEvData || []).map(e => ({
+      delta:       e.score_delta,
+      description: e.description,
+      sessionId:   e.session_id,
+    }));
+
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
@@ -235,6 +246,8 @@ async function debugResetDay() {
     sb.from('water_log').delete().eq('user_id', currentUser.id).eq('date', today),
     sb.from('activity_log').delete().eq('user_id', currentUser.id).eq('date', today),
     sb.from('mini_goals').delete().eq('user_id', currentUser.id).eq('date', today),
+    sb.from('sos_events').delete().eq('user_id', currentUser.id).eq('date', today),
+    sb.from('emotion_log').delete().eq('user_id', currentUser.id).eq('date', today),
   ]);
 
   todayScore       = null;
@@ -261,6 +274,7 @@ async function debugResetDay() {
   todaySleepWeight = 0;
   todayDynamic     = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
   todayCheckins    = [];
+  todayEventDeltas = [];
   survey2Ans       = {};
   renderHome();
 }

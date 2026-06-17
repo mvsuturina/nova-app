@@ -403,3 +403,179 @@ async function saveToolsAndGoHome(sessionId) {
   document.querySelector('#survey-screen .chat-title').textContent = 'ОПРОС';
   showHome();
 }
+
+// ── SOS (внеплановый чекин + событие) ────────────────────
+
+let sosAns = {};
+
+async function showSos() {
+  if (!surveyRef?.stomachs?.length || !surveyRef?.emotions?.length) {
+    const [ss, et, sq, eq] = await Promise.all([
+      sb.from('stomach_states').select('*').order('id'),
+      sb.from('emotion_types').select('*').order('id'),
+      sb.from('questions').select('id').eq('key', 'stomach').maybeSingle(),
+      sb.from('questions').select('id').eq('key', 'emotion').maybeSingle(),
+    ]);
+    surveyRef = {
+      ...(surveyRef || {}),
+      stomachs:   ss.data || [],
+      emotions:   et.data || [],
+      stomachQId: sq.data?.id || surveyRef?.stomachQId || null,
+      emotionQId: eq.data?.id || surveyRef?.emotionQId || null,
+    };
+  }
+  sosAns = { score_delta: 0 };
+  renderSosOverlay();
+  document.getElementById('sos-overlay').style.display = 'flex';
+}
+
+function closeSos() {
+  document.getElementById('sos-overlay').style.display = 'none';
+}
+
+function renderSosOverlay() {
+  const { stomachs, emotions } = surveyRef;
+  document.getElementById('sos-body').innerHTML = `
+    <div class="survey-question">
+      <div class="survey-q-text">Состояние живота?</div>
+      ${stomachs.map(s => `
+        <div class="radio-option" id="sos-stm-${s.id}" onclick="pickSosStomach(${s.id})">
+          <div class="radio-dot"></div>
+          <div class="radio-label">${s.label}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="survey-question">
+      <div class="survey-q-text">Эмоция прямо сейчас?</div>
+      ${emotions.map(e => `
+        <div class="radio-option" id="sos-emo-${e.id}" onclick="pickSosEmotion(${e.id})">
+          <div class="radio-dot"></div>
+          <div class="radio-label">${e.label}</div>
+        </div>`).join('')}
+      <textarea id="sos-emo-note" placeholder="Подробнее..." rows="2"
+        style="${_textareaStyle}"
+        oninput="sosAns.emotion_note=this.value"></textarea>
+    </div>
+
+    <div class="survey-question">
+      <div class="survey-q-text">Событие <span style="font-size:11px;color:var(--text-faint);letter-spacing:0;">(необязательно)</span></div>
+      <div style="margin-top:8px;">
+        <div style="font-size:10px;color:var(--text-faint);letter-spacing:2px;margin-bottom:8px;">ВЛИЯНИЕ НА СТРЕСС · положительное = больше стресса</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          ${[-20, -10, 0, 10, 20, 30].map(v => `
+            <button data-sos-delta="${v}" onclick="pickSosDelta(${v})"
+                    style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+                           padding:7px 11px;color:${v > 0 ? 'var(--red)' : v < 0 ? 'var(--green)' : 'var(--text-faint)'};
+                           font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;
+                           ${v === 0 ? 'outline:2px solid var(--purple);outline-offset:2px;' : ''}"
+            >${v > 0 ? '+' : ''}${v}</button>`).join('')}
+        </div>
+        <input id="sos-delta-input" type="number" value="0"
+               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+                      padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;
+                      box-sizing:border-box;"
+               oninput="sosAns.score_delta=parseInt(this.value)||0;_clearSosDeltaChips()">
+      </div>
+      <textarea id="sos-description" placeholder="Что произошло?" rows="3"
+        style="${_textareaStyle};margin-top:10px;"
+        oninput="sosAns.description=this.value"></textarea>
+    </div>
+
+    <button class="save-btn" id="sos-submit" onclick="_submitSos()" disabled
+            style="margin-top:8px;">ЗАФИКСИРОВАТЬ →</button>
+  `;
+}
+
+function pickSosStomach(id) {
+  sosAns.stomach = id;
+  document.querySelectorAll('[id^="sos-stm-"]').forEach(el => el.classList.remove('selected'));
+  document.getElementById('sos-stm-' + id).classList.add('selected');
+  _checkSosReady();
+}
+
+function pickSosEmotion(id) {
+  sosAns.emotion = id;
+  document.querySelectorAll('[id^="sos-emo-"]').forEach(el => el.classList.remove('selected'));
+  document.getElementById('sos-emo-' + id).classList.add('selected');
+  _checkSosReady();
+}
+
+function pickSosDelta(val) {
+  sosAns.score_delta = val;
+  _clearSosDeltaChips();
+  const chip = document.querySelector(`[data-sos-delta="${val}"]`);
+  if (chip) chip.style.outline = '2px solid var(--purple)';
+  const inp = document.getElementById('sos-delta-input');
+  if (inp) inp.value = val;
+}
+
+function _clearSosDeltaChips() {
+  document.querySelectorAll('[data-sos-delta]').forEach(el => el.style.outline = 'none');
+}
+
+function _checkSosReady() {
+  const ready = sosAns.stomach !== undefined && sosAns.emotion !== undefined;
+  const btn = document.getElementById('sos-submit');
+  if (btn) btn.disabled = !ready;
+}
+
+async function _submitSos() {
+  const btn = document.getElementById('sos-submit');
+  btn.disabled = true; btn.textContent = 'Сохраняю...';
+
+  const today = todayKey();
+  const { stomach, emotion, emotion_note, score_delta, description } = sosAns;
+
+  const { data: session } = await sb.from('daily_survey_sessions')
+    .insert({ user_id: currentUser.id, survey_id: 7, date: today })
+    .select('id').single();
+
+  const answers = [];
+  if (surveyRef.stomachQId && stomach !== undefined)
+    answers.push({ session_id: session.id, question_id: surveyRef.stomachQId, value: String(stomach) });
+  if (surveyRef.emotionQId && emotion !== undefined)
+    answers.push({ session_id: session.id, question_id: surveyRef.emotionQId, value: String(emotion) });
+  if (answers.length) await sb.from('daily_survey_answers').insert(answers);
+
+  if (emotion !== undefined) {
+    await sb.from('emotion_log').insert({
+      user_id:         currentUser.id,
+      date:            today,
+      emotion_type_id: emotion,
+      note:            emotion_note?.trim() || null,
+      session_id:      session.id,
+    });
+  }
+
+  const delta = score_delta ?? 0;
+  await sb.from('sos_events').insert({
+    user_id:     currentUser.id,
+    date:        today,
+    session_id:  session.id,
+    score_delta: delta,
+    description: description?.trim() || null,
+  });
+
+  const stomachRow = surveyRef.stomachs.find(s => s.id === stomach);
+  const emotionRow = surveyRef.emotions.find(e => e.id === emotion);
+
+  // SOS не дедуплицирует — каждый вызов отдельная запись
+  const checkin = {
+    stomachWeight: stomachRow?.weight ?? 0,
+    emotionWeight: emotionRow?.weight ?? 0,
+    surveyId: 7,
+  };
+  todayCheckins = [...todayCheckins, checkin];
+  todayDynamic  = checkin;
+
+  todayEventDeltas = [...todayEventDeltas, {
+    delta,
+    description: description?.trim() || null,
+    sessionId:   session.id,
+  }];
+
+  await recalculateScore('sos');
+
+  closeSos();
+  renderHome();
+}

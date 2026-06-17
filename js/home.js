@@ -54,6 +54,7 @@ function renderScore() {
 function renderSurveyCta() {
   document.getElementById('survey-cta')?.remove();
   ['2','3','4','5','6'].forEach(n => document.getElementById('survey' + n + '-cta')?.remove());
+  document.getElementById('sos-cta')?.remove();
 
   const scroll = document.querySelector('.home-scroll');
   if (!scroll) return;
@@ -105,6 +106,18 @@ function renderSurveyCta() {
 
     ref.parentNode.insertBefore(wrap, ref);
   });
+
+  // SOS — всегда доступен, без лока по времени, можно использовать несколько раз
+  const sosWrap = document.createElement('div');
+  sosWrap.id = 'sos-cta';
+  const sosBtn = document.createElement('button');
+  sosBtn.style.cssText = 'width:100%;background:none;border:1px solid rgba(180,40,40,0.35);' +
+    'border-radius:12px;padding:12px 20px;color:var(--red);' +
+    'font-family:"Jost",sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;';
+  sosBtn.textContent = 'SOS · ЗАФИКСИРОВАТЬ МОМЕНТ';
+  sosBtn.onclick = showSos;
+  sosWrap.appendChild(sosBtn);
+  ref.parentNode.insertBefore(sosWrap, ref);
 }
 
 function renderMiniGoals() {

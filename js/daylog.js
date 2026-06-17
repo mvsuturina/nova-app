@@ -4,6 +4,7 @@
 const SURVEY_NAMES = {
   1: 'Начало',      2: 'Чекап 7:00',  3: 'Чекап 10:00',
   4: 'Чекап 13:00', 5: 'Чекап 16:00', 6: 'Рефлексия дня',
+  7: 'SOS',
 };
 
 const DL_MEAL_RU = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин' };
@@ -58,7 +59,7 @@ async function loadDayLog() {
   const sIds = (sessions || []).map(s => s.id);
 
   const [ansRes, scoresRes, mealRes, activityRes, journalRes, tasksRes,
-         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes, emotionLogRes] = await Promise.all([
+         waterRes, periodsRes, sleepsRes, stomachsRes, emotionsRes, emotionLogRes, sosEventsRes] = await Promise.all([
     sIds.length
       ? sb.from('daily_survey_answers')
           .select('session_id, question_id, value')
@@ -89,6 +90,9 @@ async function loadDayLog() {
     sb.from('emotion_log')
       .select('session_id, note')
       .eq('user_id', currentUser.id).eq('date', today).order('created_at'),
+    sb.from('sos_events')
+      .select('session_id, score_delta, description')
+      .eq('user_id', currentUser.id).eq('date', today),
   ]);
 
   const ref = {
@@ -116,6 +120,7 @@ async function loadDayLog() {
   const tasks       = tasksRes.data       || [];
   const waters      = waterRes.data       || [];
   const emotionLogs = emotionLogRes.data  || [];
+  const sosEvents   = sosEventsRes.data   || [];
 
   // ── Строим события ────────────────────────────────────────
   const events = [];
@@ -128,6 +133,7 @@ async function loadDayLog() {
     score:        scores.find(s => s.session_id === sess.id)?.value,
     sessionTasks: tasks.filter(t => t.session_id === sess.id),
     emotionNote:  emotionLogs.find(e => e.session_id === sess.id)?.note || null,
+    sosEvent:     sosEvents.find(e => e.session_id === sess.id) || null,
   }));
 
   meals.forEach(m => events.push({
@@ -282,13 +288,26 @@ function dlRenderEvent(ev, ref, isLast) {
           </div>`).join('')}
       </div>` : '';
 
+    let sosEventHtml = '';
+    if (ev.sosEvent) {
+      const d = ev.sosEvent.score_delta;
+      const dStr = d > 0 ? '+' + d : String(d);
+      const dClr = d > 0 ? 'var(--red)' : d < 0 ? 'var(--green)' : 'var(--text-faint)';
+      sosEventHtml = `<div style="margin-top:6px;">
+        <span class="dl-chip" style="color:${dClr};">Скор ${dStr}</span>
+        ${ev.sosEvent.description ? `<div class="dl-journal-text" style="margin-top:5px;">${ev.sosEvent.description}</div>` : ''}
+      </div>`;
+    }
+
+    const dotClass = ev.surveyId === 7 ? 'dl-dot dl-dot--sos' : 'dl-dot dl-dot--survey';
     return `<div class="dl-event">
       <div class="dl-time-col"><div class="dl-time">${t}</div></div>
-      <div class="dl-dot-col"><div class="dl-dot dl-dot--survey"></div>${line}</div>
+      <div class="dl-dot-col"><div class="${dotClass}"></div>${line}</div>
       <div class="dl-body">
         <div class="dl-title">${SURVEY_NAMES[ev.surveyId] || 'Опрос'}${scoreHtml}</div>
         ${chips ? `<div class="dl-chips">${chips}</div>` : ''}
         ${ev.emotionNote ? `<div class="dl-journal-text" style="margin-top:6px;">${ev.emotionNote}</div>` : ''}
+        ${sosEventHtml}
         ${texts}${toolsHtml}
       </div>
     </div>`;

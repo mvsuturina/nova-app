@@ -140,6 +140,11 @@ async function showBreakdown() {
     }
   }
 
+  let sosRows = '';
+  todayEventDeltas.forEach(e => {
+    if (e.delta) sosRows += bkdRow(e.delta, 'Событие' + (e.description ? ` · ${e.description.slice(0,30)}${e.description.length > 30 ? '…' : ''}` : ''), '');
+  });
+
   let taskRows = '';
   dailyTasks.filter(t => t.is_complete).forEach(task => {
     const name = task.tool?.name || task.custom_name || 'Задача';
@@ -159,6 +164,7 @@ async function showBreakdown() {
     (actRows  ? sectionHdr('АКТИВНОСТЬ') + actRows  : '') +
     (mealRows ? sectionHdr('ЕДА')        + mealRows : '') +
     (dynRows  ? dynHdr + dynRows : '') +
+    (sosRows  ? sectionHdr('СОБЫТИЯ SOS') + sosRows : '') +
     (taskRows ? sectionHdr('ЗАДАЧИ') + taskRows : '') +
     hint +
     historyHtml;

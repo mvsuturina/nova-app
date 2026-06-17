@@ -32,6 +32,7 @@ const ZONE_DESCS = {
 
 function getCheckinCoefficient(surveyId) {
   if (!surveyId || surveyId <= 2) return 0;
+  if (surveyId === 7) return 1;   // SOS: полный вес, без усиления (влияние задаётся через score_delta)
   if (surveyId <= 4) return 1.25;
   return 1.5;
 }
@@ -72,6 +73,11 @@ async function recalculateScore(source) {
   for (const c of todayCheckins) {
     const coeff = getCheckinCoefficient(c.surveyId);
     s += Math.round(c.emotionWeight * coeff);
+  }
+
+  // Ручные события SOS
+  for (const e of todayEventDeltas) {
+    s += e.delta;
   }
 
   // Выполненные задачи

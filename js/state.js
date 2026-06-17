@@ -40,6 +40,8 @@ let todaySleepWeight = 0;
 let todayDynamic = { stomachWeight: 0, emotionWeight: 0, surveyId: null };
 // История всех чекинов дня (для накопительного скора)
 let todayCheckins = [];
+// Ручные события SOS: [{delta, description, sessionId}]
+let todayEventDeltas = [];
 
 // Recording state
 let journalTaskId = null;

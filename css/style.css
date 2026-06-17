@@ -198,6 +198,7 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .dl-dot-col { width: 8px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 3px; }
 .dl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dl-dot--survey   { background: var(--purple); }
+.dl-dot--sos      { background: var(--red); }
 .dl-dot--meal     { background: var(--green); }
 .dl-dot--activity { background: #f97316; }
 .dl-dot--journal  { background: var(--gold); }
