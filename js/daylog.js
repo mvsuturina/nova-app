@@ -91,8 +91,8 @@ async function loadDayLog() {
       .select('session_id, note')
       .eq('user_id', currentUser.id).eq('date', today).order('created_at'),
     sb.from('sos_events')
-      .select('session_id, score_delta, description')
-      .eq('user_id', currentUser.id).eq('date', today),
+      .select('stomach_state_id, emotion_type_id, emotion_note, score_delta, description, created_at')
+      .eq('user_id', currentUser.id).eq('date', today).order('created_at'),
   ]);
 
   const ref = {
@@ -148,7 +148,18 @@ async function loadDayLog() {
     score:        getSessionScore(sess.survey_id),
     sessionTasks: tasks.filter(t => t.session_id === sess.id),
     emotionNote:  emotionLogs.find(e => e.session_id === sess.id)?.note || null,
-    sosEvent:     sosEvents.find(e => e.session_id === sess.id) || null,
+  }));
+
+  // SOS события — из sos_events напрямую (нет daily_survey_sessions)
+  sosEvents.forEach(ev => events.push({
+    type:            'sos',
+    time:            new Date(ev.created_at),
+    score:           getSessionScore(7),
+    stomachStateId:  ev.stomach_state_id,
+    emotionTypeId:   ev.emotion_type_id,
+    emotionNote:     ev.emotion_note || null,
+    eventDelta:      ev.score_delta,
+    description:     ev.description || null,
   }));
 
   meals.forEach(m => events.push({
@@ -192,10 +203,10 @@ async function loadDayLog() {
 
   events.sort((a, b) => a.time - b.time);
 
-  // Считаем дельту скора для каждого опроса
+  // Считаем дельту скора для опросов и SOS
   let prevSurveyScore = null;
   events.forEach(ev => {
-    if (ev.type === 'survey' && ev.score !== null) {
+    if ((ev.type === 'survey' || ev.type === 'sos') && ev.score !== null) {
       ev.scoreDelta = prevSurveyScore !== null ? ev.score - prevSurveyScore : null;
       prevSurveyScore = ev.score;
     }
@@ -318,27 +329,55 @@ function dlRenderEvent(ev, ref, isLast) {
           </div>`).join('')}
       </div>` : '';
 
-    let sosEventHtml = '';
-    if (ev.sosEvent) {
-      const d = ev.sosEvent.score_delta;
-      const dStr = d > 0 ? '+' + d : String(d);
-      const dClr = d > 0 ? 'var(--red)' : d < 0 ? 'var(--green)' : 'var(--text-faint)';
-      sosEventHtml = `<div style="margin-top:6px;">
-        <span class="dl-chip" style="color:${dClr};">Скор ${dStr}</span>
-        ${ev.sosEvent.description ? `<div class="dl-journal-text" style="margin-top:5px;">${ev.sosEvent.description}</div>` : ''}
-      </div>`;
-    }
-
-    const dotClass = ev.surveyId === 7 ? 'dl-dot dl-dot--sos' : 'dl-dot dl-dot--survey';
     return `<div class="dl-event">
       <div class="dl-time-col"><div class="dl-time">${t}</div></div>
-      <div class="dl-dot-col"><div class="${dotClass}"></div>${line}</div>
+      <div class="dl-dot-col"><div class="dl-dot dl-dot--survey"></div>${line}</div>
       <div class="dl-body">
         <div class="dl-title">${SURVEY_NAMES[ev.surveyId] || 'Опрос'}${scoreHtml}</div>
         ${chips ? `<div class="dl-chips">${chips}</div>` : ''}
         ${ev.emotionNote ? `<div class="dl-journal-text" style="margin-top:6px;">${ev.emotionNote}</div>` : ''}
-        ${sosEventHtml}
         ${texts}${toolsHtml}
+      </div>
+    </div>`;
+  }
+
+  // ── SOS ──────────────────────────────────────────────
+  if (ev.type === 'sos') {
+    const zone = ev.score != null ? getZone(ev.score) : null;
+    const zc   = { green: 'var(--green)', yellow: 'var(--gold)', red: 'var(--red)', catastrophe: 'var(--red)' };
+    const deltaHtml = (zone && ev.scoreDelta !== null)
+      ? `<span style="font-size:11px;font-weight:500;margin-left:4px;
+                      color:${ev.scoreDelta > 0 ? 'var(--red)' : ev.scoreDelta < 0 ? 'var(--green)' : 'var(--text-faint)'};">
+           ${ev.scoreDelta > 0 ? '+' : ''}${ev.scoreDelta}
+         </span>`
+      : '';
+    const scoreHtml = zone
+      ? `&thinsp;<span style="color:${zc[zone]};font-weight:500;">${Math.max(0, ev.score)}</span>${deltaHtml}`
+      : '';
+
+    const stomachLabel = ref.stomachs.find(s => s.id === ev.stomachStateId)?.label;
+    const emotionLabel = ref.emotions.find(e => e.id === ev.emotionTypeId)?.label;
+    const chips = [
+      stomachLabel ? `<span class="dl-chip">Живот ${stomachLabel}</span>` : '',
+      emotionLabel ? `<span class="dl-chip">Эмоция ${emotionLabel}</span>`  : '',
+    ].filter(Boolean).join('');
+
+    const d = ev.eventDelta;
+    const dStr = d > 0 ? '+' + d : String(d);
+    const dClr = d > 0 ? 'var(--red)' : d < 0 ? 'var(--green)' : 'var(--text-faint)';
+    const eventHtml = `<div style="margin-top:6px;">
+      <span class="dl-chip" style="color:${dClr};">Событие ${dStr}</span>
+      ${ev.description ? `<div class="dl-journal-text" style="margin-top:5px;">${ev.description}</div>` : ''}
+    </div>`;
+
+    return `<div class="dl-event">
+      <div class="dl-time-col"><div class="dl-time">${t}</div></div>
+      <div class="dl-dot-col"><div class="dl-dot dl-dot--sos"></div>${line}</div>
+      <div class="dl-body">
+        <div class="dl-title">SOS${scoreHtml}</div>
+        ${chips ? `<div class="dl-chips">${chips}</div>` : ''}
+        ${ev.emotionNote ? `<div class="dl-journal-text" style="margin-top:6px;">${ev.emotionNote}</div>` : ''}
+        ${eventHtml}
       </div>
     </div>`;
   }

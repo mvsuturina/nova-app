@@ -146,15 +146,31 @@ async function loadUserData() {
       todayDynamic  = c;
     }
 
-    // SOS-события за сегодня
+    // SOS-события за сегодня (хранятся отдельно, без daily_survey_sessions)
     const { data: sosEvData } = await sb.from('sos_events')
-      .select('session_id, score_delta, description')
-      .eq('user_id', currentUser.id).eq('date', today);
+      .select('score_delta, description, stomach_state_id, emotion_type_id, created_at')
+      .eq('user_id', currentUser.id).eq('date', today)
+      .order('created_at', { ascending: true });
+
     todayEventDeltas = (sosEvData || []).map(e => ({
       delta:       e.score_delta,
       description: e.description,
-      sessionId:   e.session_id,
     }));
+
+    if (sosEvData?.length) {
+      const sosCheckins = sosEvData.map(ev => ({
+        stomachWeight: surveyRef.stomachs.find(s => s.id === ev.stomach_state_id)?.weight ?? 0,
+        emotionWeight: surveyRef.emotions.find(e => e.id === ev.emotion_type_id)?.weight  ?? 0,
+        surveyId: 7,
+      }));
+      // Определяем порядок: сравниваем время последнего обычного чекина и последнего SOS
+      const lastDynTime  = dynamicSessions.length
+        ? new Date(dynamicSessions[dynamicSessions.length - 1].completed_at).getTime()
+        : 0;
+      const lastSosTime  = new Date(sosEvData[sosEvData.length - 1].created_at).getTime();
+      todayCheckins = [...todayCheckins, ...sosCheckins];
+      if (lastSosTime > lastDynTime) todayDynamic = sosCheckins[sosCheckins.length - 1];
+    }
 
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([

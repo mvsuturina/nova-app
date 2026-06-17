@@ -523,59 +523,41 @@ async function _submitSos() {
   const btn = document.getElementById('sos-submit');
   btn.disabled = true; btn.textContent = 'Сохраняю...';
 
-  const today = todayKey();
-  const { stomach, emotion, emotion_note, score_delta, description } = sosAns;
+  try {
+    const today = todayKey();
+    const { stomach, emotion, emotion_note, score_delta, description } = sosAns;
+    const delta = score_delta ?? 0;
 
-  const { data: session } = await sb.from('daily_survey_sessions')
-    .insert({ user_id: currentUser.id, survey_id: 7, date: today })
-    .select('id').single();
-
-  const answers = [];
-  if (surveyRef.stomachQId && stomach !== undefined)
-    answers.push({ session_id: session.id, question_id: surveyRef.stomachQId, value: String(stomach) });
-  if (surveyRef.emotionQId && emotion !== undefined)
-    answers.push({ session_id: session.id, question_id: surveyRef.emotionQId, value: String(emotion) });
-  if (answers.length) await sb.from('daily_survey_answers').insert(answers);
-
-  if (emotion !== undefined) {
-    await sb.from('emotion_log').insert({
-      user_id:         currentUser.id,
-      date:            today,
-      emotion_type_id: emotion,
-      note:            emotion_note?.trim() || null,
-      session_id:      session.id,
+    // SOS хранится целиком в sos_events — без daily_survey_sessions (нет FK-конфликта)
+    const { error } = await sb.from('sos_events').insert({
+      user_id:          currentUser.id,
+      date:             today,
+      stomach_state_id: stomach   || null,
+      emotion_type_id:  emotion   || null,
+      emotion_note:     emotion_note?.trim()  || null,
+      score_delta:      delta,
+      description:      description?.trim()   || null,
     });
+    if (error) throw error;
+
+    const stomachRow = surveyRef.stomachs.find(s => s.id === stomach);
+    const emotionRow = surveyRef.emotions.find(e => e.id === emotion);
+
+    const checkin = {
+      stomachWeight: stomachRow?.weight ?? 0,
+      emotionWeight: emotionRow?.weight ?? 0,
+      surveyId: 7,
+    };
+    todayCheckins    = [...todayCheckins, checkin];
+    todayDynamic     = checkin;
+    todayEventDeltas = [...todayEventDeltas, { delta, description: description?.trim() || null }];
+
+    await recalculateScore('sos');
+    closeSos();
+    renderHome();
+  } catch (err) {
+    console.error('SOS submit error:', err);
+    btn.disabled  = false;
+    btn.textContent = 'ЗАФИКСИРОВАТЬ →';
   }
-
-  const delta = score_delta ?? 0;
-  await sb.from('sos_events').insert({
-    user_id:     currentUser.id,
-    date:        today,
-    session_id:  session.id,
-    score_delta: delta,
-    description: description?.trim() || null,
-  });
-
-  const stomachRow = surveyRef.stomachs.find(s => s.id === stomach);
-  const emotionRow = surveyRef.emotions.find(e => e.id === emotion);
-
-  // SOS не дедуплицирует — каждый вызов отдельная запись
-  const checkin = {
-    stomachWeight: stomachRow?.weight ?? 0,
-    emotionWeight: emotionRow?.weight ?? 0,
-    surveyId: 7,
-  };
-  todayCheckins = [...todayCheckins, checkin];
-  todayDynamic  = checkin;
-
-  todayEventDeltas = [...todayEventDeltas, {
-    delta,
-    description: description?.trim() || null,
-    sessionId:   session.id,
-  }];
-
-  await recalculateScore('sos');
-
-  closeSos();
-  renderHome();
 }
