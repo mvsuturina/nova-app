@@ -31,10 +31,11 @@ const ZONE_DESCS = {
 // Живот коэффициента НЕ имеет — это текущее физическое состояние, всегда полный вес.
 
 function getCheckinCoefficient(surveyId) {
-  if (!surveyId || surveyId <= 2) return 0;
-  if (surveyId === 7) return 1;   // SOS: полный вес, без усиления (влияние задаётся через score_delta)
-  if (surveyId <= 4) return 1.25;
-  return 1.5;
+  if (!surveyId || surveyId === 1) return 0;  // утренний опрос — без эмоции
+  if (surveyId === 2) return 1;               // 7:00 — полный вес
+  if (surveyId === 7) return 1;               // SOS — полный вес
+  if (surveyId <= 4)  return 1.25;            // 10:00, 13:00
+  return 1.5;                                 // 16:00, рефлексия
 }
 
 // ── ПЕРЕСЧЁТ СКОРА ────────────────────────────────────────
@@ -84,8 +85,9 @@ async function recalculateScore(source) {
   const doneCount = dailyTasks.filter(t => t.is_complete).length;
   s -= doneCount * 10;
 
-  // Не логируем если значение не изменилось
-  if (todayScore !== null && todayScore === s) {
+  // Пропускаем запись только для не-чекиновых источников (активность, еда и т.д.)
+  const isCheckin = source.startsWith('checkin_') || source === 'sos';
+  if (!isCheckin && todayScore !== null && todayScore === s) {
     renderScore();
     return;
   }

@@ -109,8 +109,8 @@ async function showBreakdown() {
   };
 
   let factRows = '';
-  if (todayCycleWeight) factRows += bkdRow(todayCycleWeight, 'Цикл', '');
-  if (todaySleepWeight) factRows += bkdRow(todaySleepWeight, 'Сон', '');
+  if (todayCyclePeriodId) factRows += bkdRow(todayCycleWeight, 'Цикл · ' + todayCycleLabel, '');
+  if (todaySleepWeight)   factRows += bkdRow(todaySleepWeight, 'Сон', '');
   factRows += bkdRow(todayToilet ? -20 : 10, 'Туалет', todayToilet ? '✓ сделано' : '✗ не сделано');
   factRows += bkdRow(todayWork   ? -20 : 10, 'Работа', todayWork   ? '✓ сделано' : '✗ не сделано');
 
