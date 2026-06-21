@@ -437,7 +437,7 @@ function renderSosOverlay() {
   const { stomachs, emotions } = surveyRef;
   document.getElementById('sos-body').innerHTML = `
     <div class="survey-question">
-      <div class="survey-q-text">Состояние живота?</div>
+      <div class="survey-q-text">Состояние живота? <span style="font-size:11px;color:var(--text-faint);letter-spacing:0;">(необязательно)</span></div>
       ${stomachs.map(s => `
         <div class="radio-option" id="sos-stm-${s.id}" onclick="pickSosStomach(${s.id})">
           <div class="radio-dot"></div>
@@ -446,7 +446,7 @@ function renderSosOverlay() {
     </div>
 
     <div class="survey-question">
-      <div class="survey-q-text">Эмоция прямо сейчас?</div>
+      <div class="survey-q-text">Эмоция прямо сейчас? <span style="font-size:11px;color:var(--text-faint);letter-spacing:0;">(необязательно)</span></div>
       ${emotions.map(e => `
         <div class="radio-option" id="sos-emo-${e.id}" onclick="pickSosEmotion(${e.id})">
           <div class="radio-dot"></div>
@@ -474,11 +474,11 @@ function renderSosOverlay() {
                style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
                       padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;
                       box-sizing:border-box;"
-               oninput="sosAns.score_delta=parseInt(this.value)||0;_clearSosDeltaChips()">
+               oninput="sosAns.score_delta=parseInt(this.value)||0;_clearSosDeltaChips();_checkSosReady()">
       </div>
       <textarea id="sos-description" placeholder="Что произошло?" rows="3"
         style="${_textareaStyle};margin-top:10px;"
-        oninput="sosAns.description=this.value"></textarea>
+        oninput="sosAns.description=this.value;_checkSosReady()"></textarea>
     </div>
 
     <button class="save-btn" id="sos-submit" onclick="_submitSos()" disabled
@@ -507,6 +507,7 @@ function pickSosDelta(val) {
   if (chip) chip.style.outline = '2px solid var(--purple)';
   const inp = document.getElementById('sos-delta-input');
   if (inp) inp.value = val;
+  _checkSosReady();
 }
 
 function _clearSosDeltaChips() {
@@ -514,7 +515,11 @@ function _clearSosDeltaChips() {
 }
 
 function _checkSosReady() {
-  const ready = sosAns.stomach !== undefined && sosAns.emotion !== undefined;
+  const hasStomach  = sosAns.stomach !== undefined;
+  const hasEmotion  = sosAns.emotion !== undefined;
+  const hasDelta    = (sosAns.score_delta ?? 0) !== 0;
+  const hasDesc     = !!sosAns.description?.trim();
+  const ready = hasStomach || hasEmotion || hasDelta || hasDesc;
   const btn = document.getElementById('sos-submit');
   if (btn) btn.disabled = !ready;
 }
