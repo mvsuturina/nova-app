@@ -119,6 +119,26 @@ async function analyzeWeek() {
 
 Стиль: русский, как будто разговариваешь с человеком — конкретно, без воды, без общих советов. Максимум 600 слов.`;
 
+  // Компактная версия для AI: убираем score_history и null-поля
+  const compactReport = JSON.parse(_exportJson);
+  compactReport.days = compactReport.days.map(d => {
+    const day = { ...d };
+    delete day.score_history;
+    // Убираем null/пустые поля
+    Object.keys(day).forEach(k => {
+      if (day[k] === null || day[k] === false) delete day[k];
+      if (Array.isArray(day[k]) && day[k].length === 0) delete day[k];
+    });
+    if (day.meals) {
+      Object.keys(day.meals).forEach(k => { if (!day.meals[k]) delete day.meals[k]; });
+    }
+    if (day.activity) {
+      Object.keys(day.activity).forEach(k => { if (!day.activity[k]) delete day.activity[k]; });
+    }
+    return day;
+  });
+  const aiJson = JSON.stringify(compactReport);
+
   try {
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -127,9 +147,9 @@ async function analyzeWeek() {
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user',   content: 'Данные за неделю:\n\n' + _exportJson },
+          { role: 'user',   content: 'Данные за неделю:\n\n' + aiJson },
         ],
-        max_tokens: 2800,
+        max_tokens: 1800,
         temperature: 0.4,
       }),
     });
