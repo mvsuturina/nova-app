@@ -966,7 +966,9 @@ async function estimateMealCalories() {
   const btn  = document.getElementById('meal-kcal-btn');
   const res  = document.getElementById('meal-kcal-result');
 
-  const photos = activeMealType ? (todayMealPhotos[activeMealType] || []) : [];
+  const photos = activeMealType === 'snack'
+    ? (todaySnacks[activeSnackIdx]?.photos || [])
+    : (activeMealType ? (todayMealPhotos[activeMealType] || []) : []);
   if (!desc && !photos.length) { res.textContent = 'Добавь описание или фото'; return; }
 
   const apiKey = profile.groq_api_key || localStorage.getItem('nova_api_key');
