@@ -655,6 +655,9 @@ async function estimateMealCalories() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
+    // DEBUG: показываем сырой ответ
+    res.textContent = '↓ RAW: ' + raw;
+    await new Promise(r => setTimeout(r, 4000));
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
     // Формируем итоговую строку
