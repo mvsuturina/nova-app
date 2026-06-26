@@ -492,9 +492,12 @@ function renderTrackers() {
   }).join('');
 
   const addSnackCard = `
-    <div class="meal-card" style="cursor:pointer;opacity:0.6;" onclick="openSnackModal(null)">
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
-        <div style="font-size:24px;color:var(--text-faint);line-height:1;">+</div>
+    <div class="meal-card meal-card-add"
+         onclick="openSnackModal(null)"
+         ontouchstart="this._tx=event.touches[0].clientX;this._ty=event.touches[0].clientY;"
+         ontouchend="if(Math.abs(event.changedTouches[0].clientX-this._tx)<15&&Math.abs(event.changedTouches[0].clientY-this._ty)<15){event.preventDefault();openSnackModal(null);}">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0.6;">
+        <div style="font-size:28px;color:var(--text-faint);line-height:1;">+</div>
         <div style="font-size:10px;color:var(--text-faint);letter-spacing:1px;margin-top:4px;">ПЕРЕКУС</div>
       </div>
     </div>`;
