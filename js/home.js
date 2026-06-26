@@ -459,6 +459,7 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
             <div class="meal-slot-name">${label} ${qualityTag}</div>
+            ${meal.description ? `<div class="meal-slot-desc">${meal.description}</div>` : ''}
           </div>
         </div>`;
     } else {
@@ -487,6 +488,7 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">✓</div>
             <div class="meal-slot-name">Перекус ${qualityTag}</div>
+            ${snack.description ? `<div class="meal-slot-desc">${snack.description}</div>` : ''}
           </div>
         </div>`;
     }
