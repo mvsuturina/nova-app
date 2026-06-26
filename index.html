@@ -343,12 +343,12 @@
       </div>
 
       <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Что съела (опционально)</div>
-      <textarea id="meal-modal-desc" rows="2"
+      <textarea id="meal-modal-desc" rows="1"
         style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
                padding:10px 12px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;
-               resize:none;box-sizing:border-box;"
+               resize:none;box-sizing:border-box;overflow:hidden;min-height:44px;line-height:1.5;"
         placeholder="Опиши что съела..."
-        oninput="mealModalData.description=this.value"></textarea>
+        oninput="mealModalData.description=this.value;this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;min-height:24px;">
         <button id="meal-kcal-btn" onclick="estimateMealCalories()"
                 style="background:none;border:1px solid rgba(147,112,219,0.3);border-radius:8px;

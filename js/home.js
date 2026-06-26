@@ -592,7 +592,10 @@ function openMealModal(type) {
   document.querySelectorAll('[id^="mhh-"]').forEach(el => el.classList.remove('selected'));
   if (meal.hungerAfterHour) document.getElementById('mhh-' + meal.hungerAfterHour)?.classList.add('selected');
 
-  document.getElementById('meal-modal-desc').value = meal.description || '';
+  const _descTa = document.getElementById('meal-modal-desc');
+  _descTa.value = meal.description || '';
+  _descTa.style.height = 'auto';
+  _descTa.style.height = _descTa.scrollHeight + 'px';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
   const kcalRes = document.getElementById('meal-kcal-result');
   if (kcalRes) kcalRes.textContent = '';
