@@ -696,16 +696,16 @@ async function estimateMealCalories() {
       body: JSON.stringify({
         model: photos.length ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
         messages,
-        max_tokens: 80,
+        max_tokens: 800,
         temperature: 0.1,
       }),
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
-    res.style.whiteSpace = 'pre-wrap';
-    res.style.fontSize = '11px';
-    res.textContent = '↓ RAW:\n' + raw;
+    // DEBUG
+    const dbg = document.getElementById('meal-nutrition-breakdown');
+    if (dbg) { dbg.innerHTML = `<pre style="font-size:10px;color:var(--text-faint);white-space:pre-wrap;word-break:break-all;background:var(--bg3);border-radius:8px;padding:8px;margin-top:8px;">${raw}</pre>`; }
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
     const t = _mealNutrition?.total;
