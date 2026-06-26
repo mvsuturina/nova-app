@@ -653,20 +653,17 @@ async function estimateMealCalories() {
       }),
     });
     const data = await resp.json();
-    // DEBUG: показываем полный ответ
-    res.style.whiteSpace = 'pre-wrap';
-    res.style.fontSize = '10px';
-    res.textContent = JSON.stringify(data, null, 2);
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
+    res.style.whiteSpace = 'pre-wrap';
+    res.style.fontSize = '11px';
+    res.textContent = '↓ RAW:\n' + raw;
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
-    // Формируем итоговую строку
     const t = _mealNutrition?.total;
     const totalLine = t
       ? `~${t.kcal} ккал · Б ${t.p}г · Ж ${t.f}г · У ${t.c}г`
       : (raw.match(/[~≈]?\s*\d+\s*ккал[^\n]*/i)?.[0]?.trim() || '—');
-    res.textContent = totalLine;
     const ta = document.getElementById('meal-modal-desc');
     ta.value = (desc || '') + (desc ? '\n' : '') + totalLine;
     mealModalData.description = ta.value;
