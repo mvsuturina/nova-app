@@ -509,7 +509,9 @@ function closeMealModal() {
 }
 
 async function estimateMealCalories() {
-  const desc = mealModalData.description?.trim();
+  const raw  = mealModalData.description?.trim() || '';
+  // Убираем старую оценку перед отправкой
+  const desc = raw.replace(/\n~\d+[^\n]+$/, '').trim();
   const btn  = document.getElementById('meal-kcal-btn');
   const res  = document.getElementById('meal-kcal-result');
   if (!desc) { res.textContent = 'Сначала опиши что съела'; return; }
@@ -526,11 +528,18 @@ async function estimateMealCalories() {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'Ты нутрициолог. Оцени примерную калорийность и БЖУ блюда. Отвечай ТОЛЬКО в формате: ~X ккал · Б Xг · Ж Xг · У Xг. Никаких пояснений, только цифры в этом формате.' },
-          { role: 'user',   content: desc },
+          { role: 'system', content: `Ты нутрициолог. Посчитай ккал и БЖУ по описанию еды.
+Правила:
+- Если указаны граммы — считай точно по ним (гречка 150г = ~170 ккал, куриная грудка 200г = ~220 ккал и т.д.)
+- Если граммы не указаны — используй среднюю порцию для этого блюда
+- Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
+- Сначала посчитай каждый ингредиент отдельно (внутри своих рассуждений), потом сложи
+Отвечай ТОЛЬКО итоговой строкой в формате: ~X ккал · Б Xг · Ж Xг · У Xг
+Никаких пояснений и расшифровок — только эта строка.` },
+          { role: 'user', content: desc },
         ],
         max_tokens: 60,
-        temperature: 0.2,
+        temperature: 0.1,
       }),
     });
     const data = await resp.json();
@@ -538,8 +547,7 @@ async function estimateMealCalories() {
     const estimate = data.choices?.[0]?.message?.content?.trim() || '—';
     res.textContent = estimate;
     const ta = document.getElementById('meal-modal-desc');
-    const current = ta.value.replace(/\n~.+$/, '').trimEnd();
-    ta.value = current + '\n' + estimate;
+    ta.value = desc + '\n' + estimate;
     mealModalData.description = ta.value;
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
