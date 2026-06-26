@@ -728,26 +728,27 @@ function openSnackModal(idx) {
   // Фото
   const photoArr = snack?.photos || [];
   const el = document.getElementById('meal-modal-photos');
-  el.innerHTML = photoArr.length
-    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
-        ${photoArr.map((url, i) => `
-          <div style="position:relative;flex-shrink:0;">
-            <img src="${url}" onclick="openMealLightbox('${url}')"
-                 style="width:80px;height:80px;border-radius:10px;object-fit:cover;cursor:pointer;">
-            <button onclick="deleteSnackPhoto(${i})"
-                    style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);border:none;
-                           color:white;border-radius:50%;width:20px;height:20px;font-size:11px;
-                           cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
-          </div>`).join('')}
-      </div>`
-    : '';
-
-  if (photoArr.length < 3) {
-    el.innerHTML += `<button onclick="addSnackPhoto()"
-      style="width:100%;background:var(--bg3);border:1px dashed var(--border);border-radius:10px;
-             padding:10px;color:var(--text-faint);font-family:'Jost',sans-serif;font-size:12px;
-             letter-spacing:1px;cursor:pointer;margin-bottom:12px;">+ Фото</button>`;
-  }
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
+      ${photoArr.map((url, i) => `
+        <div style="position:relative;flex-shrink:0;">
+          <img src="${url}" onclick="openMealLightbox('${url}')"
+               style="width:76px;height:76px;border-radius:10px;object-fit:cover;cursor:pointer;">
+          <button onclick="deleteSnackPhoto(${i})"
+                  style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);border:none;
+                         color:white;border-radius:50%;width:20px;height:20px;font-size:11px;
+                         cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
+        </div>`).join('')}
+      ${photoArr.length < 3 ? `
+        <label style="width:76px;height:76px;background:var(--bg3);border-radius:10px;
+                      border:1px dashed var(--border);display:flex;align-items:center;
+                      justify-content:center;font-size:26px;cursor:pointer;flex-shrink:0;
+                      -webkit-tap-highlight-color:transparent;">
+          <input type="file" accept="image/*" style="display:none"
+                 onchange="handleSnackPhotoFromModal(this)">
+          📷
+        </label>` : ''}
+    </div>`;
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
@@ -810,26 +811,40 @@ async function deleteSnackFromModal() {
   await recalculateScore('meal_snack');
 }
 
-async function addSnackPhoto() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-  input.onchange = async () => {
-    const file = input.files[0];
-    if (!file || activeSnackIdx === null && todaySnacks.length === 0) return;
-    const snack = activeSnackIdx !== null ? todaySnacks[activeSnackIdx] : todaySnacks[todaySnacks.length - 1];
-    if (!snack || snack.photos.length >= 3) return;
-    const blob = file.size > 1500000
-      ? await (async () => { const c = document.createElement('canvas'); const img = new Image(); img.src=URL.createObjectURL(file); await new Promise(r=>{img.onload=r;}); const ratio=Math.min(1500/img.width,1500/img.height,1); c.width=img.width*ratio; c.height=img.height*ratio; c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(r=>c.toBlob(r,'image/jpeg',0.82)); })()
-      : file;
-    const path = `${currentUser.id}/${todayKey()}/${Date.now()}.jpg`;
-    const { error } = await sb.storage.from('meal-photos').upload(path, blob, { contentType: 'image/jpeg' });
-    if (error) return;
-    const { data: urlData } = sb.storage.from('meal-photos').getPublicUrl(path);
-    snack.photos.push(urlData.publicUrl);
+async function handleSnackPhotoFromModal(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  const today = todayKey();
+  const blob  = await cropImageSquare(file);
+  const path  = `${currentUser.id}/${today}/snack_${Date.now()}.jpg`;
+  const { error } = await sb.storage.from('meal-photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (error) { console.error('snack photo upload:', error); return; }
+  const { data: urlData } = sb.storage.from('meal-photos').getPublicUrl(path);
+  const photoUrl = urlData.publicUrl;
+
+  if (activeSnackIdx !== null) {
+    const snack = todaySnacks[activeSnackIdx];
+    snack.photos.push(photoUrl);
     await sb.from('meal_log').update({ photo_urls: snack.photos }).eq('id', snack.id);
-    openSnackModal(activeSnackIdx);
-  };
-  input.click();
+  } else {
+    // Первое фото нового перекуса — создаём запись в БД
+    const { data } = await sb.from('meal_log').insert({
+      user_id: currentUser.id, date: today, meal_type: 'snack', in_window: false,
+    }).select('id').single();
+    const newSnack = {
+      id: data?.id || null,
+      description: null, quality: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null,
+      nutritionJson: null, photos: [photoUrl], carouselIdx: 0,
+    };
+    if (data?.id) await sb.from('meal_log').update({ photo_urls: [photoUrl] }).eq('id', data.id);
+    todaySnacks.push(newSnack);
+    activeSnackIdx = todaySnacks.length - 1;
+  }
+
+  renderTrackers();
+  openSnackModal(activeSnackIdx);
 }
 
 async function deleteSnackPhoto(photoIdx) {
