@@ -366,6 +366,7 @@ const MEAL_WINDOWS = {
   breakfast: { label: 'Завтрак', window: '6 – 8' },
   lunch:     { label: 'Обед',    window: '12 – 14' },
   dinner:    { label: 'Ужин',    window: '16 – 18' },
+  snack:     { label: 'Перекус', window: '' },
 };
 
 const ACTIVITY_SLOTS = {
@@ -461,6 +462,44 @@ function renderTrackers() {
 
   const mealCount = ['breakfast','lunch','dinner'].filter(t => todayMeals[t].done).length;
 
+  // Снеки
+  const snackCards = todaySnacks.map((snack, i) => {
+    const photo = snack.photos[snack.carouselIdx] || null;
+    const dots  = snack.photos.length > 1
+      ? `<div class="meal-dots">${snack.photos.map((_, pi) =>
+          `<span class="meal-dot${pi === snack.carouselIdx ? ' active' : ''}"></span>`
+        ).join('')}</div>`
+      : '';
+    const qualityTag = snack.quality === 'plan'
+      ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
+      : snack.quality === 'slip'
+      ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
+      : '';
+    return `
+      <div class="meal-card done" data-snack="${i}"
+           style="min-width:120px;${photo ? `background-image:url('${photo}')` : ''}"
+           ondblclick="openSnackModal(${i})"
+           ontouchstart="snackTouchStart(event,${i})"
+           ontouchend="snackTouchEnd(event,${i})">
+        <div class="meal-card-overlay"></div>
+        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
+        ${dots}
+        <div class="meal-card-label">
+          <div class="meal-slot-icon">✓</div>
+          <div class="meal-slot-name">Перекус ${qualityTag}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const addSnackCard = `
+    <div class="meal-card" style="min-width:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0.6;"
+         onclick="openSnackModal(null)">
+      <div style="text-align:center;">
+        <div style="font-size:24px;color:var(--text-faint);line-height:1;">+</div>
+        <div style="font-size:10px;color:var(--text-faint);letter-spacing:1px;margin-top:4px;">ПЕРЕКУС</div>
+      </div>
+    </div>`;
+
   container.innerHTML = `
     ${factsHtml}
     <div class="tracker-block">
@@ -468,7 +507,11 @@ function renderTrackers() {
         <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">ПРИЁМЫ ПИЩИ</div>
         <div style="font-size:10px;color:${mealCount === 3 ? 'var(--green)' : 'var(--text-faint)'};">${mealCount}/3</div>
       </div>
-      <div class="meal-row">${meals}</div>
+      <div class="meal-row" style="overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+        ${meals}
+        ${snackCards}
+        ${addSnackCard}
+      </div>
     </div>
     <div class="tracker-block">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -609,6 +652,199 @@ function mealTouchEnd(e, type) {
       _mealLastTapTime = now;
     }
   }
+}
+
+// ── СНЕК — карусель и модал ───────────────────────────────
+
+let _snackTouchX = 0, _snackTouchY = 0, _snackLastTapIdx = null, _snackLastTapTime = 0;
+let activeSnackIdx = null; // null = новый снек, число = индекс в todaySnacks
+
+function snackTouchStart(e, idx) {
+  _snackTouchX = e.touches[0].clientX;
+  _snackTouchY = e.touches[0].clientY;
+}
+
+function snackTouchEnd(e, idx) {
+  const dx = e.changedTouches[0].clientX - _snackTouchX;
+  const dy = e.changedTouches[0].clientY - _snackTouchY;
+  if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+    const snack = todaySnacks[idx];
+    if (!snack) return;
+    const len = snack.photos.length;
+    if (len < 2) return;
+    snack.carouselIdx = dx < 0
+      ? Math.min(snack.carouselIdx + 1, len - 1)
+      : Math.max(snack.carouselIdx - 1, 0);
+    updateSnackCarousel(idx);
+    return;
+  }
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+    const now = Date.now();
+    if (_snackLastTapIdx === idx && now - _snackLastTapTime < 350) {
+      _snackLastTapIdx = null; _snackLastTapTime = 0;
+      openSnackModal(idx);
+    } else {
+      _snackLastTapIdx = idx; _snackLastTapTime = now;
+    }
+  }
+}
+
+function updateSnackCarousel(idx) {
+  const snack = todaySnacks[idx];
+  if (!snack) return;
+  const card = document.querySelector(`.meal-card[data-snack="${idx}"]`);
+  if (!card) return;
+  card.style.backgroundImage = snack.photos[snack.carouselIdx] ? `url('${snack.photos[snack.carouselIdx]}')` : '';
+  card.querySelectorAll('.meal-dot').forEach((d, i) => d.classList.toggle('active', i === snack.carouselIdx));
+}
+
+function openSnackModal(idx) {
+  activeSnackIdx = idx;
+  activeMealType = 'snack';
+  const snack = idx !== null ? todaySnacks[idx] : null;
+
+  document.getElementById('meal-modal-title').textContent = 'ПЕРЕКУС';
+  document.querySelectorAll('[id^="mq-"]').forEach(el => el.classList.remove('mq-selected'));
+  if (snack?.quality) document.getElementById('mq-' + snack.quality)?.classList.add('mq-selected');
+
+  document.querySelectorAll('[id^="mmh-"],[id^="mah-"],[id^="mhh-"]').forEach(el => el.classList.remove('selected'));
+  if (snack?.hungerBefore)    document.getElementById('mmh-' + snack.hungerBefore)?.classList.add('selected');
+  if (snack?.hungerAfter)     document.getElementById('mah-' + snack.hungerAfter)?.classList.add('selected');
+  if (snack?.hungerAfterHour) document.getElementById('mhh-' + snack.hungerAfterHour)?.classList.add('selected');
+
+  mealModalData = {
+    quality:        snack?.quality        || null,
+    hungerBefore:   snack?.hungerBefore   || null,
+    hungerAfter:    snack?.hungerAfter    || null,
+    hungerAfterHour:snack?.hungerAfterHour|| null,
+    description:    snack?.description    || '',
+  };
+
+  const _descTa = document.getElementById('meal-modal-desc');
+  _descTa.value = snack?.description || '';
+  _descTa.style.height = 'auto';
+  _descTa.style.height = _descTa.scrollHeight + 'px';
+
+  const kcalRes = document.getElementById('meal-kcal-result');
+  if (kcalRes) kcalRes.textContent = '';
+  _mealNutrition = snack?.nutritionJson || null;
+  renderMealNutritionBreakdown();
+
+  // Фото
+  const photoArr = snack?.photos || [];
+  const el = document.getElementById('meal-modal-photos');
+  el.innerHTML = photoArr.length
+    ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
+        ${photoArr.map((url, i) => `
+          <div style="position:relative;flex-shrink:0;">
+            <img src="${url}" onclick="openMealLightbox('${url}')"
+                 style="width:80px;height:80px;border-radius:10px;object-fit:cover;cursor:pointer;">
+            <button onclick="deleteSnackPhoto(${i})"
+                    style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);border:none;
+                           color:white;border-radius:50%;width:20px;height:20px;font-size:11px;
+                           cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
+          </div>`).join('')}
+      </div>`
+    : '';
+
+  if (photoArr.length < 3) {
+    el.innerHTML += `<button onclick="addSnackPhoto()"
+      style="width:100%;background:var(--bg3);border:1px dashed var(--border);border-radius:10px;
+             padding:10px;color:var(--text-faint);font-family:'Jost',sans-serif;font-size:12px;
+             letter-spacing:1px;cursor:pointer;margin-bottom:12px;">+ Фото</button>`;
+  }
+
+  document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
+  document.getElementById('meal-modal').style.display = 'flex';
+}
+
+async function saveSnackModal() {
+  const today = todayKey();
+  const h = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
+  const { quality, hungerBefore, hungerAfter, hungerAfterHour, description } = mealModalData;
+  const fields = {
+    quality:          quality || null,
+    description:      description?.trim() || null,
+    hunger_before:    hungerBefore || null,
+    hunger_after:     hungerAfter || null,
+    hunger_after_hour:hungerAfterHour || null,
+    nutrition_json:   _mealNutrition || null,
+  };
+
+  if (activeSnackIdx !== null) {
+    const snack = todaySnacks[activeSnackIdx];
+    await sb.from('meal_log').update(fields).eq('id', snack.id);
+    Object.assign(snack, {
+      quality, description: description?.trim()||null,
+      hungerBefore, hungerAfter, hungerAfterHour,
+      nutritionJson: _mealNutrition || null,
+    });
+  } else {
+    const { data } = await sb.from('meal_log').insert({
+      user_id: currentUser.id, date: today, meal_type: 'snack',
+      in_window: false, ...fields,
+    }).select('id').single();
+    todaySnacks.push({
+      id: data?.id || null,
+      description: description?.trim()||null,
+      quality, hungerBefore, hungerAfter, hungerAfterHour,
+      nutritionJson: _mealNutrition || null,
+      photos: [], carouselIdx: 0,
+    });
+  }
+  closeMealModal();
+  renderTrackers();
+  renderScore();
+  await recalculateScore('meal_snack');
+}
+
+async function deleteSnackFromModal() {
+  if (activeSnackIdx === null) { closeMealModal(); return; }
+  const snack = todaySnacks[activeSnackIdx];
+  if (snack.photos.length) {
+    for (const url of snack.photos) {
+      const path = url.split('/meal-photos/')[1]?.split('?')[0];
+      if (path) await sb.storage.from('meal-photos').remove([decodeURIComponent(path)]);
+    }
+  }
+  await sb.from('meal_log').delete().eq('id', snack.id);
+  todaySnacks.splice(activeSnackIdx, 1);
+  closeMealModal();
+  renderTrackers();
+  await recalculateScore('meal_snack');
+}
+
+async function addSnackPhoto() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file || activeSnackIdx === null && todaySnacks.length === 0) return;
+    const snack = activeSnackIdx !== null ? todaySnacks[activeSnackIdx] : todaySnacks[todaySnacks.length - 1];
+    if (!snack || snack.photos.length >= 3) return;
+    const blob = file.size > 1500000
+      ? await (async () => { const c = document.createElement('canvas'); const img = new Image(); img.src=URL.createObjectURL(file); await new Promise(r=>{img.onload=r;}); const ratio=Math.min(1500/img.width,1500/img.height,1); c.width=img.width*ratio; c.height=img.height*ratio; c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(r=>c.toBlob(r,'image/jpeg',0.82)); })()
+      : file;
+    const path = `${currentUser.id}/${todayKey()}/${Date.now()}.jpg`;
+    const { error } = await sb.storage.from('meal-photos').upload(path, blob, { contentType: 'image/jpeg' });
+    if (error) return;
+    const { data: urlData } = sb.storage.from('meal-photos').getPublicUrl(path);
+    snack.photos.push(urlData.publicUrl);
+    await sb.from('meal_log').update({ photo_urls: snack.photos }).eq('id', snack.id);
+    openSnackModal(activeSnackIdx);
+  };
+  input.click();
+}
+
+async function deleteSnackPhoto(photoIdx) {
+  if (activeSnackIdx === null) return;
+  const snack = todaySnacks[activeSnackIdx];
+  const url = snack.photos[photoIdx];
+  const path = url.split('/meal-photos/')[1]?.split('?')[0];
+  if (path) await sb.storage.from('meal-photos').remove([decodeURIComponent(path)]);
+  snack.photos.splice(photoIdx, 1);
+  await sb.from('meal_log').update({ photo_urls: snack.photos.length ? snack.photos : null }).eq('id', snack.id);
+  openSnackModal(activeSnackIdx);
 }
 
 function updateMealCarousel(type) {
@@ -811,6 +1047,7 @@ function setMealHungerAfterHour(v) {
 
 async function saveMealModal() {
   if (!activeMealType) return;
+  if (activeMealType === 'snack') { await saveSnackModal(); return; }
   const type = activeMealType;
   const today = todayKey();
   const { quality, hungerBefore, hungerAfter, hungerAfterHour, description } = mealModalData;
@@ -857,6 +1094,7 @@ async function saveMealModal() {
 
 async function deleteMealFromModal() {
   if (!activeMealType) return;
+  if (activeMealType === 'snack') { await deleteSnackFromModal(); return; }
   const type  = activeMealType;
   const today = todayKey();
 

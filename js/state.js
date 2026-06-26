@@ -21,7 +21,8 @@ let todayMeals = {
   dinner:    { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null, nutritionJson: null },
 };
 let todayMealPhotos   = { breakfast: [], lunch: [], dinner: [] };
-let mealCarouselIdx   = { breakfast: 0,  lunch: 0,  dinner: 0  };
+let mealCarouselIdx   = { breakfast: 0,  lunch: 0,  dinner: 0 };
+let todaySnacks       = []; // [{id, description, quality, hungerBefore, hungerAfter, hungerAfterHour, nutritionJson, photos, carouselIdx}]
 let todayActivity   = { warmup: false, workout: false, walk: false };
 let todayTools      = { nap: false, selfcare: false, shopping: false, reading: false, media: false, music: false };
 
