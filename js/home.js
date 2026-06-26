@@ -24,6 +24,89 @@ function _parseMealKcal(desc) {
   return m ? { kcal: +m[1], p: +m[2], f: +m[3], c: +m[4] } : null;
 }
 
+function _parseNutritionResponse(text) {
+  const items = [];
+  const itemRe = /[-•*]\s*(.+?)\s+(\d+)г:\s*(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/gm;
+  let m;
+  while ((m = itemRe.exec(text)) !== null) {
+    items.push({ name: m[1].trim(), grams: +m[2], kcal: +m[3], p: +m[4], f: +m[5], c: +m[6] });
+  }
+  const totM = text.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
+  if (!totM) return null;
+  return { items, total: { kcal: +totM[1], p: +totM[2], f: +totM[3], c: +totM[4] } };
+}
+
+function _recalcNutritionTotal() {
+  if (!_mealNutrition) return;
+  _mealNutrition.total = _mealNutrition.items.reduce(
+    (acc, it) => ({ kcal: acc.kcal + it.kcal, p: acc.p + it.p, f: acc.f + it.f, c: acc.c + it.c }),
+    { kcal: 0, p: 0, f: 0, c: 0 }
+  );
+}
+
+function _renderNutritionBreakdown() {
+  const el = document.getElementById('meal-nutrition-breakdown');
+  if (!el) return;
+  if (!_mealNutrition) { el.innerHTML = ''; return; }
+  const { items, total } = _mealNutrition;
+  const rows = items.map((it, i) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;
+                border-bottom:1px solid var(--border);font-size:12px;">
+      <div style="flex:1;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.name}</div>
+      <div style="flex-shrink:0;">
+        <span id="nitem-g-${i}" onclick="editNutritionGrams(${i})"
+              style="color:var(--purple-light);cursor:pointer;padding:2px 6px;
+                     border:1px solid rgba(147,112,219,0.25);border-radius:6px;font-size:11px;">${it.grams}г</span>
+      </div>
+      <div style="color:var(--text-faint);font-size:11px;flex-shrink:0;min-width:56px;text-align:right;">${it.kcal} ккал</div>
+      <div style="color:var(--text-faint);font-size:10px;flex-shrink:0;">Б${it.p} Ж${it.f} У${it.c}</div>
+    </div>`).join('');
+  el.innerHTML = `
+    <div style="margin-top:10px;background:var(--bg3);border-radius:10px;padding:8px 12px;">
+      <div style="font-size:9px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">СОСТАВ · тап на граммы чтобы поправить</div>
+      ${rows}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;margin-top:2px;">
+        <div style="font-size:11px;color:var(--text-faint);">Итого</div>
+        <div style="font-size:12px;color:var(--purple-light);">~${total.kcal} ккал · Б${total.p}г Ж${total.f}г У${total.c}г</div>
+      </div>
+    </div>`;
+}
+
+function editNutritionGrams(idx) {
+  if (!_mealNutrition) return;
+  const item = _mealNutrition.items[idx];
+  const span = document.getElementById(`nitem-g-${idx}`);
+  if (!span) return;
+  const input = document.createElement('input');
+  input.type  = 'number'; input.value = item.grams; input.min = 1;
+  input.style.cssText = `width:52px;background:var(--bg);border:1px solid var(--purple-light);
+    border-radius:6px;color:var(--text);font-size:11px;padding:2px 4px;font-family:'Jost',sans-serif;`;
+  span.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    const ng = Math.max(1, parseInt(input.value) || item.grams);
+    const factor = ng / item.grams;
+    item.grams = ng;
+    item.kcal  = Math.round(item.kcal * factor);
+    item.p     = Math.round(item.p    * factor);
+    item.f     = Math.round(item.f    * factor);
+    item.c     = Math.round(item.c    * factor);
+    _recalcNutritionTotal();
+    _renderNutritionBreakdown();
+    // обновляем итоговую строку в textarea
+    const t = _mealNutrition.total;
+    const totalLine = `~${t.kcal} ккал · Б ${t.p}г · Ж ${t.f}г · У ${t.c}г`;
+    const ta = document.getElementById('meal-modal-desc');
+    if (ta) {
+      ta.value = ta.value.replace(/\n~\d+[^\n]+$/, '') + '\n' + totalLine;
+      mealModalData.description = ta.value;
+    }
+    document.getElementById('meal-kcal-result').textContent = totalLine;
+  };
+  input.addEventListener('blur',  commit);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+}
+
 function renderScore() {
   const valueEl = document.getElementById('score-value');
   const fillEl  = document.getElementById('score-fill');
@@ -425,6 +508,7 @@ function updateMealCarousel(type) {
 
 let activeMealType = null;
 let mealModalData = { quality: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null, description: '' };
+let _mealNutrition = null; // { items: [{name,grams,kcal,p,f,c}], total: {kcal,p,f,c} }
 
 function openMealModal(type) {
   activeMealType = type;
@@ -457,6 +541,8 @@ function openMealModal(type) {
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
   const kcalRes = document.getElementById('meal-kcal-result');
   if (kcalRes) kcalRes.textContent = '';
+  _mealNutrition = meal.nutritionJson || null;
+  _renderNutritionBreakdown();
   renderMealModalPhotos(type);
 
   document.getElementById('meal-modal').style.display = 'flex';
@@ -522,14 +608,16 @@ async function estimateMealCalories() {
 
   btn.disabled = true; btn.textContent = '...'; res.textContent = '';
 
-  const instruction = `Ты нутрициолог. Посчитай ккал и БЖУ.
+  const instruction = `Ты нутрициолог. Посчитай ккал и БЖУ по каждому ингредиенту отдельно.
 Правила:
-- Тарелка по умолчанию: плоская 24 см диаметр. Если в описании указан другой диаметр или что тарелка глубокая — используй это
-- По фото оцени заполненность тарелки (половина, 3/4, полная) и рассчитай объём/граммы исходя из диаметра
+- Тарелка по умолчанию: плоская 24 см диаметр. Если указан другой диаметр или тарелка глубокая — используй это
+- По фото оцени заполненность тарелки и рассчитай граммы исходя из диаметра
 - Если указаны граммы в описании — используй их, они точнее фото
-- Для каждого ингредиента посчитай отдельно, потом сложи
 - Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
-Отвечай ТОЛЬКО строкой: ~X ккал · Б Xг · Ж Xг · У Xг`;
+Формат ответа — СТРОГО такой, без лишнего текста:
+- Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
+- Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
+~X ккал · Б Xг · Ж Xг · У Xг`;
 
   try {
     let messages;
@@ -559,13 +647,16 @@ async function estimateMealCalories() {
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
-    const estimate = data.choices?.[0]?.message?.content?.trim() || '—';
-    // Извлекаем только строку с форматом если модель добавила лишний текст
-    const match = estimate.match(/~\d+\s*ккал\s*·\s*Б\s*\d+г\s*·\s*Ж\s*\d+г\s*·\s*У\s*\d+г/);
-    const clean = match ? match[0] : estimate;
-    res.textContent = clean;
+    const raw = data.choices?.[0]?.message?.content?.trim() || '';
+    const match = raw.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
+    const totalLine = match ? match[0] : '—';
+    res.textContent = totalLine;
+    // Парсим разбивку
+    _mealNutrition = _parseNutritionResponse(raw);
+    _renderNutritionBreakdown();
+    // Записываем итог в textarea
     const ta = document.getElementById('meal-modal-desc');
-    ta.value = (desc || '') + (desc ? '\n' : '') + clean;
+    ta.value = (desc || '') + (desc ? '\n' : '') + totalLine;
     mealModalData.description = ta.value;
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
@@ -617,6 +708,7 @@ async function saveMealModal() {
     hunger_before:     hungerBefore     || null,
     hunger_after:      hungerAfter      || null,
     hunger_after_hour: hungerAfterHour  || null,
+    nutrition_json:    _mealNutrition   || null,
   };
 
   if (existingMeal) {
@@ -634,6 +726,7 @@ async function saveMealModal() {
     hungerBefore:    hungerBefore   || null,
     hungerAfter:     hungerAfter    || null,
     hungerAfterHour: hungerAfterHour || null,
+    nutritionJson:   _mealNutrition || null,
   };
 
   renderTrackers();

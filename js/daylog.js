@@ -69,7 +69,7 @@ async function loadDayLog() {
       .select('value, source').eq('user_id', currentUser.id).eq('date', today)
       .order('created_at'),
     sb.from('meal_log')
-      .select('meal_type, quality, description, photo_urls, hunger_before, hunger_after, hunger_after_hour, created_at')
+      .select('meal_type, quality, description, photo_urls, hunger_before, hunger_after, hunger_after_hour, nutrition_json, created_at')
       .eq('user_id', currentUser.id).eq('date', today).order('created_at'),
     sb.from('activity_log')
       .select('activity_type, created_at')
@@ -169,9 +169,10 @@ async function loadDayLog() {
     quality:        m.quality,
     description:    m.description,
     photos:         m.photo_urls || [],
-    hungerBefore:   m.hunger_before,
-    hungerAfter:    m.hunger_after,
+    hungerBefore:    m.hunger_before,
+    hungerAfter:     m.hunger_after,
     hungerAfterHour: m.hunger_after_hour,
+    nutritionJson:   m.nutrition_json || null,
   }));
 
   activities.forEach(a => events.push({
@@ -409,6 +410,15 @@ function dlRenderEvent(ev, ref, isLast) {
     const kcalHtml  = kcalLine
       ? `<div style="font-size:11px;color:var(--purple-light);margin-top:5px;letter-spacing:0.5px;">${kcalLine}</div>`
       : '';
+    const nutritionHtml = ev.nutritionJson?.items?.length
+      ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;">
+          ${ev.nutritionJson.items.map(it =>
+            `<div style="font-size:10px;color:var(--text-faint);">
+              ${it.name} ${it.grams}г — ${it.kcal} ккал · Б${it.p} Ж${it.f} У${it.c}
+            </div>`
+          ).join('')}
+        </div>`
+      : '';
 
     const hungerParts = [];
     if (ev.hungerBefore    != null) hungerParts.push(`До: <b>${ev.hungerBefore}</b>`);
@@ -423,7 +433,7 @@ function dlRenderEvent(ev, ref, isLast) {
       <div class="dl-dot-col"><div class="dl-dot dl-dot--meal"></div>${line}</div>
       <div class="dl-body">
         <div class="dl-title">${mealLabel}${qualityTag}</div>
-        ${photosHtml}${descHtml}${kcalHtml}${hungerHtml}
+        ${photosHtml}${descHtml}${kcalHtml}${nutritionHtml}${hungerHtml}
       </div>
     </div>`;
   }

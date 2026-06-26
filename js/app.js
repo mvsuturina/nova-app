@@ -186,7 +186,7 @@ async function loadUserData() {
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
-      sb.from('meal_log').select('meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_urls')
+      sb.from('meal_log').select('meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_urls, nutrition_json')
         .eq('user_id', currentUser.id).eq('date', today),
       sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
       sb.from('daily_tasks')
@@ -223,6 +223,7 @@ async function loadUserData() {
         hungerBefore:    row?.hunger_before      || null,
         hungerAfter:     row?.hunger_after       || null,
         hungerAfterHour: row?.hunger_after_hour  || null,
+        nutritionJson:   row?.nutrition_json     || null,
       };
       todayMealPhotos[type] = row?.photo_urls || [];
     }
