@@ -155,7 +155,7 @@ function editNutritionGrams(idx) {
     if (ta) {
       ta.value = ta.value.replace(/\n~\d+[^\n]+$/, '') + '\n' + totalLine;
       mealModalData.description = ta.value;
-      ta.style.height = 'auto';
+      ta.style.height = '1px';
       ta.style.height = ta.scrollHeight + 'px';
     }
     document.getElementById('meal-kcal-result').textContent = totalLine;
@@ -461,7 +461,7 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
             <div class="meal-slot-name">${label} ${qualityTag}</div>
-            ${meal.description ? `<div class="meal-slot-desc">${meal.description}</div>` : ''}
+            ${(() => { const n = _parseMealKcal(meal.description); return n ? `<div class="meal-slot-desc">~${n.kcal} ккал</div>` : ''; })()}
           </div>
         </div>`;
     } else {
@@ -490,7 +490,7 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">✓</div>
             <div class="meal-slot-name">Перекус ${qualityTag}</div>
-            ${snack.description ? `<div class="meal-slot-desc">${snack.description}</div>` : ''}
+            ${(() => { const n = snack.nutritionJson?.total || _parseMealKcal(snack.description); return n ? `<div class="meal-slot-desc">~${n.kcal} ккал</div>` : ''; })()}
           </div>
         </div>`;
     }
@@ -739,7 +739,7 @@ function openSnackModal(idx) {
 
   const _descTa = document.getElementById('meal-modal-desc');
   _descTa.value = snack?.description || '';
-  _descTa.style.height = 'auto';
+  _descTa.style.height = '1px';
   _descTa.style.height = _descTa.scrollHeight + 'px';
 
   const kcalRes = document.getElementById('meal-kcal-result');
@@ -747,32 +747,11 @@ function openSnackModal(idx) {
   _mealNutrition = snack?.nutritionJson || null;
   _renderNutritionBreakdown();
 
-  // Фото — тот же шаблон что renderMealModalPhotos
-  const photoArr = snack?.photos || [];
-  const el = document.getElementById('meal-modal-photos');
-  el.innerHTML = `
-    <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Фото</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
-      ${photoArr.map((url, i) => `
-        <div style="position:relative;flex-shrink:0;">
-          <img src="${url}" onclick="openMealLightbox('${url}')"
-               style="width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;cursor:pointer;">
-          <button onclick="deleteSnackPhoto(${i})"
-                  style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;
-                         background:rgba(0,0,0,0.85);border:none;border-radius:50%;color:white;
-                         font-size:12px;line-height:1;cursor:pointer;display:flex;
-                         align-items:center;justify-content:center;padding:0;">×</button>
-        </div>`).join('')}
-      ${photoArr.length < 3 ? `
-        <label style="width:76px;height:76px;background:var(--bg3);border-radius:10px;
-                      border:1px dashed var(--border);display:flex;align-items:center;
-                      justify-content:center;font-size:26px;cursor:pointer;flex-shrink:0;
-                      -webkit-tap-highlight-color:transparent;">
-          <input type="file" accept="image/*" style="display:none"
-                 onchange="handleSnackPhotoFromModal(this)">
-          📷
-        </label>` : ''}
-    </div>`;
+  document.getElementById('meal-modal-photos').innerHTML = _renderPhotoGrid(
+    snack?.photos || [],
+    i => `deleteSnackPhoto(${i})`,
+    `handleSnackPhotoFromModal(this)`
+  );
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
@@ -800,18 +779,21 @@ async function saveSnackModal() {
       nutritionJson: _mealNutrition || null,
     });
   } else {
-    const { data } = await sb.from('meal_log').insert({
+    const { data, error: insertErr } = await sb.from('meal_log').insert({
       user_id: currentUser.id, date: today, meal_type: 'snack',
       in_window: false, ...fields,
     }).select('id').single();
-    const _now = new Date().toISOString();
+    if (insertErr || !data?.id) {
+      console.error('snack insert failed:', insertErr);
+      return;
+    }
     todaySnacks.push({
-      id: data?.id || null,
+      id: data.id,
       description: description?.trim()||null,
       quality, hungerBefore, hungerAfter, hungerAfterHour,
       nutritionJson: _mealNutrition || null,
       photos: [], carouselIdx: 0,
-      createdAt: _now,
+      createdAt: new Date().toISOString(),
     });
   }
   closeMealModal();
@@ -854,18 +836,20 @@ async function handleSnackPhotoFromModal(input) {
     snack.photos.push(photoUrl);
     await sb.from('meal_log').update({ photo_urls: snack.photos }).eq('id', snack.id);
   } else {
-    // Первое фото нового перекуса — создаём запись в БД
-    const { data } = await sb.from('meal_log').insert({
-      user_id: currentUser.id, date: today, meal_type: 'snack', in_window: false,
+    const { data, error: insertErr } = await sb.from('meal_log').insert({
+      user_id: currentUser.id, date: today, meal_type: 'snack',
+      in_window: false, photo_urls: [photoUrl],
     }).select('id').single();
-    const newSnack = {
-      id: data?.id || null,
+    if (insertErr || !data?.id) {
+      console.error('snack insert failed:', insertErr);
+      return;
+    }
+    todaySnacks.push({
+      id: data.id,
       description: null, quality: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null,
       nutritionJson: null, photos: [photoUrl], carouselIdx: 0,
       createdAt: new Date().toISOString(),
-    };
-    if (data?.id) await sb.from('meal_log').update({ photo_urls: [photoUrl] }).eq('id', data.id);
-    todaySnacks.push(newSnack);
+    });
     activeSnackIdx = todaySnacks.length - 1;
   }
 
@@ -928,7 +912,7 @@ function openMealModal(type) {
 
   const _descTa = document.getElementById('meal-modal-desc');
   _descTa.value = meal.description || '';
-  _descTa.style.height = 'auto';
+  _descTa.style.height = '1px';
   _descTa.style.height = _descTa.scrollHeight + 'px';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
   const kcalRes = document.getElementById('meal-kcal-result');
@@ -940,18 +924,15 @@ function openMealModal(type) {
   document.getElementById('meal-modal').style.display = 'flex';
 }
 
-function renderMealModalPhotos(type) {
-  const el = document.getElementById('meal-modal-photos');
-  if (!el) return;
-  const photos = todayMealPhotos[type] || [];
-  el.innerHTML = `
+function _renderPhotoGrid(photos, deleteHandler, addHandler) {
+  return `
     <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Фото</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
       ${photos.map((url, i) => `
         <div style="position:relative;flex-shrink:0;">
           <img src="${url}" onclick="openMealLightbox('${url}')"
                style="width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;cursor:pointer;">
-          <button onclick="deleteMealPhotoFromModal('${type}',${i})"
+          <button onclick="${deleteHandler(i)}"
                   style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;
                          background:rgba(0,0,0,0.85);border:none;border-radius:50%;color:white;
                          font-size:12px;line-height:1;cursor:pointer;display:flex;
@@ -963,10 +944,20 @@ function renderMealModalPhotos(type) {
                       justify-content:center;font-size:26px;cursor:pointer;flex-shrink:0;
                       -webkit-tap-highlight-color:transparent;">
           <input type="file" accept="image/*" style="display:none"
-                 onchange="handleMealPhotoFromModal('${type}',this)">
+                 onchange="${addHandler}">
           📷
         </label>` : ''}
     </div>`;
+}
+
+function renderMealModalPhotos(type) {
+  const el = document.getElementById('meal-modal-photos');
+  if (!el) return;
+  el.innerHTML = _renderPhotoGrid(
+    todayMealPhotos[type] || [],
+    i => `deleteMealPhotoFromModal('${type}',${i})`,
+    `handleMealPhotoFromModal('${type}',this)`
+  );
 }
 
 async function handleMealPhotoFromModal(type, input) {
@@ -984,6 +975,7 @@ async function deleteMealPhotoFromModal(type, idx) {
 function closeMealModal() {
   document.getElementById('meal-modal').style.display = 'none';
   activeMealType = null;
+  _mealNutrition = null;
 }
 
 async function estimateMealCalories() {
@@ -1051,7 +1043,7 @@ async function estimateMealCalories() {
     const ta = document.getElementById('meal-modal-desc');
     ta.value = (desc || '') + (desc ? '\n' : '') + totalLine;
     mealModalData.description = ta.value;
-    ta.style.height = 'auto';
+    ta.style.height = '1px';
     ta.style.height = ta.scrollHeight + 'px';
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
