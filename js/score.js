@@ -81,9 +81,13 @@ async function recalculateScore(source) {
     s += e.delta;
   }
 
-  // Выполненные задачи
-  const doneCount = dailyTasks.filter(t => t.is_complete).length;
-  s -= doneCount * 10;
+  // Выполненные задачи (-10 каждая) + инструменты поддержки (реальный вес)
+  const redZoneIds = new Set((surveyRef?.redZoneTools || []).map(t => t.id));
+  for (const t of dailyTasks) {
+    if (!t.is_complete) continue;
+    if (t.tool_id && redZoneIds.has(t.tool_id)) s += (t.tool?.weight || 0);
+    else s -= 10;
+  }
 
   // Пропускаем запись только для не-чекиновых источников (активность, еда и т.д.)
   const isCheckin = source.startsWith('checkin_') || source === 'sos';

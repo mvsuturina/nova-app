@@ -206,6 +206,60 @@ function renderScore() {
 
   const btn = document.getElementById('breakdown-btn');
   if (btn) btn.style.display = 'block';
+
+  renderTools();
+}
+
+function renderTools() {
+  const el = document.getElementById('red-zone-tools');
+  if (!el) return;
+
+  const isRed = todayScore !== null && todayScore >= 65;
+  if (!isRed || !surveyRef?.redZoneTools?.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const redZoneIds = new Set((surveyRef?.redZoneTools || []).map(t => t.id));
+  const doneIds = new Set(dailyTasks.filter(t => t.is_complete && redZoneIds.has(t.tool_id)).map(t => t.tool_id));
+
+  const buttons = surveyRef.redZoneTools.map(tool => {
+    const done = doneIds.has(tool.id);
+    return `<button onclick="toggleRedZoneTool(${tool.id})"
+      style="flex:1;min-width:calc(50% - 4px);background:${done ? 'none' : 'var(--bg2)'};
+             border:1px solid ${done ? 'rgba(255,255,255,0.08)' : 'var(--border)'};
+             border-radius:12px;padding:10px 8px;cursor:pointer;text-align:left;
+             color:${done ? 'rgba(255,255,255,0.25)' : 'var(--text)'};
+             font-family:'Jost',sans-serif;font-size:12px;transition:opacity 0.2s;">
+        <div style="font-size:10px;color:${done ? 'rgba(255,255,255,0.15)' : 'var(--green)'};letter-spacing:0.5px;margin-bottom:3px;">${done ? '✓' : tool.weight}</div>
+        <div style="${done ? 'text-decoration:line-through;' : ''}">${tool.name}</div>
+    </button>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="margin-bottom:8px;">
+      <div style="font-size:9px;letter-spacing:3px;color:var(--red);text-transform:uppercase;margin-bottom:10px;">ВЫБЕРИ ПРАКТИКУ</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">${buttons}</div>
+    </div>`;
+}
+
+async function toggleRedZoneTool(toolId) {
+  const today = todayKey();
+  const existing = dailyTasks.find(t => t.tool_id === toolId);
+
+  if (existing) {
+    const newDone = !existing.is_complete;
+    await sb.from('daily_tasks').update({ is_complete: newDone, completed_at: newDone ? new Date().toISOString() : null }).eq('id', existing.id);
+    existing.is_complete = newDone;
+  } else {
+    const { data } = await sb.from('daily_tasks').insert({
+      user_id: currentUser.id, date: today, tool_id: toolId, is_complete: true, completed_at: new Date().toISOString(),
+    }).select('id, is_complete, tool_id, custom_name, tool:tool_id(name, duration_min, weight, tool_type)').single();
+    if (data) dailyTasks.push(data);
+  }
+
+  await recalculateScore('tool');
+  renderTools();
 }
 
 function renderSurveyCta() {

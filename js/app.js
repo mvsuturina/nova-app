@@ -69,21 +69,23 @@ async function loadUserData() {
     const today = todayKey();
 
     // Справочники (нужны для расчёта весов)
-    const [pr, sl, ss, et, sq, eq] = await Promise.all([
+    const [pr, sl, ss, et, sq, eq, rzt] = await Promise.all([
       sb.from('periods').select('id, label, weight').order('id'),
       sb.from('sleeps').select('id, label, weight').order('id'),
       sb.from('stomach_states').select('id, label, weight').order('id'),
       sb.from('emotion_types').select('id, label, weight').order('id'),
       sb.from('questions').select('id').eq('key', 'stomach').maybeSingle(),
       sb.from('questions').select('id').eq('key', 'emotion').maybeSingle(),
+      sb.from('tools').select('id, name, weight').eq('is_red_zone', true).order('weight'),
     ]);
     surveyRef = {
-      periods:     pr.data || [],
-      sleeps:      sl.data || [],
-      stomachs:    ss.data || [],
-      emotions:    et.data || [],
-      stomachQId:  sq.data?.id || null,
-      emotionQId:  eq.data?.id || null,
+      periods:      pr.data  || [],
+      sleeps:       sl.data  || [],
+      stomachs:     ss.data  || [],
+      emotions:     et.data  || [],
+      stomachQId:   sq.data?.id || null,
+      emotionQId:   eq.data?.id || null,
+      redZoneTools: rzt.data || [],
     };
 
     // Сессии опросов за сегодня
@@ -190,7 +192,7 @@ async function loadUserData() {
         .eq('user_id', currentUser.id).eq('date', today),
       sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
       sb.from('daily_tasks')
-        .select('id, is_complete, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
+        .select('id, is_complete, tool_id, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
         .eq('user_id', currentUser.id).eq('date', today).order('created_at', { ascending: true }),
       sb.from('journal_entries')
         .select('task_id, text, audio_url, source')

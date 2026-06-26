@@ -23,6 +23,7 @@ let todayMeals = {
 let todayMealPhotos   = { breakfast: [], lunch: [], dinner: [] };
 let mealCarouselIdx   = { breakfast: 0,  lunch: 0,  dinner: 0  };
 let todayActivity   = { warmup: false, workout: false, walk: false };
+let todayTools      = { nap: false, selfcare: false, shopping: false, reading: false, media: false, music: false };
 
 // Факты дня — туалет и работа (по умолчанию не сделано = +10 стресс каждый)
 let todayToilet = false;
