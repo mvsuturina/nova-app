@@ -396,7 +396,7 @@ async function saveToolsAndGoHome(sessionId) {
       }))
     );
     const { data: td } = await sb.from('daily_tasks')
-      .select('id, is_complete, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
+      .select('id, is_complete, tool_id, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
       .eq('user_id', currentUser.id).eq('date', todayKey()).order('created_at');
     dailyTasks = td || [];
   }
