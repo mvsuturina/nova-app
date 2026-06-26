@@ -176,6 +176,16 @@ function renderScore() {
     cardEl.className    = 'score-card';
     zoneEl.textContent  = '';
     zoneEl.className    = 'score-zone';
+    const kcalElNull = document.getElementById('score-kcal');
+    if (kcalElNull) {
+      const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
+      const _add = obj => { if (!obj) return; totals.kcal += obj.kcal; totals.p += obj.p; totals.f += obj.f; totals.c += obj.c; totals.n++; };
+      ['breakfast', 'lunch', 'dinner'].forEach(t => _add(_parseMealKcal(todayMeals[t]?.description)));
+      todaySnacks.forEach(s => _add(s.nutritionJson?.total || _parseMealKcal(s.description)));
+      kcalElNull.textContent = totals.n
+        ? `~${totals.kcal} ккал  ·  Б ${totals.p}г  Ж ${totals.f}г  У ${totals.c}г`
+        : '';
+    }
     return;
   }
 
@@ -194,11 +204,10 @@ function renderScore() {
 
   const kcalEl = document.getElementById('score-kcal');
   if (kcalEl) {
-    const totals = ['breakfast', 'lunch', 'dinner'].reduce((acc, t) => {
-      const parsed = _parseMealKcal(todayMeals[t]?.description);
-      if (parsed) { acc.kcal += parsed.kcal; acc.p += parsed.p; acc.f += parsed.f; acc.c += parsed.c; acc.n++; }
-      return acc;
-    }, { kcal: 0, p: 0, f: 0, c: 0, n: 0 });
+    const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
+    const _add = obj => { if (!obj) return; totals.kcal += obj.kcal; totals.p += obj.p; totals.f += obj.f; totals.c += obj.c; totals.n++; };
+    ['breakfast', 'lunch', 'dinner'].forEach(t => _add(_parseMealKcal(todayMeals[t]?.description)));
+    todaySnacks.forEach(s => _add(s.nutritionJson?.total || _parseMealKcal(s.description)));
     kcalEl.textContent = totals.n
       ? `~${totals.kcal} ккал  ·  Б ${totals.p}г  Ж ${totals.f}г  У ${totals.c}г`
       : '';
