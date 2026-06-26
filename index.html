@@ -347,6 +347,13 @@
                resize:none;box-sizing:border-box;"
         placeholder="Опиши что съела..."
         oninput="mealModalData.description=this.value"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;min-height:24px;">
+        <button id="meal-kcal-btn" onclick="estimateMealCalories()"
+                style="background:none;border:1px solid rgba(147,112,219,0.3);border-radius:8px;
+                       color:var(--purple-light);font-family:'Jost',sans-serif;font-size:11px;
+                       letter-spacing:1px;padding:5px 10px;cursor:pointer;flex-shrink:0;">~ ккал</button>
+        <div id="meal-kcal-result" style="font-size:12px;color:var(--text-dim);line-height:1.4;"></div>
+      </div>
 
       <div style="display:flex;gap:8px;margin-top:16px;">
         <button onclick="saveMealModal()"

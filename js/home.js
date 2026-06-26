@@ -436,6 +436,8 @@ function openMealModal(type) {
 
   document.getElementById('meal-modal-desc').value = meal.description || '';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
+  const kcalRes = document.getElementById('meal-kcal-result');
+  if (kcalRes) kcalRes.textContent = '';
   renderMealModalPhotos(type);
 
   document.getElementById('meal-modal').style.display = 'flex';
@@ -485,6 +487,40 @@ async function deleteMealPhotoFromModal(type, idx) {
 function closeMealModal() {
   document.getElementById('meal-modal').style.display = 'none';
   activeMealType = null;
+}
+
+async function estimateMealCalories() {
+  const desc = mealModalData.description?.trim();
+  const btn  = document.getElementById('meal-kcal-btn');
+  const res  = document.getElementById('meal-kcal-result');
+  if (!desc) { res.textContent = 'Сначала опиши что съела'; return; }
+
+  const apiKey = profile.groq_api_key || localStorage.getItem('nova_api_key');
+  if (!apiKey) { res.textContent = 'Нужен API ключ Groq в настройках'; return; }
+
+  btn.disabled = true; btn.textContent = '...'; res.textContent = '';
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: 'Ты нутрициолог. Оцени примерную калорийность и БЖУ блюда. Отвечай ТОЛЬКО в формате: ~X ккал · Б Xг · Ж Xг · У Xг. Никаких пояснений, только цифры в этом формате.' },
+          { role: 'user',   content: desc },
+        ],
+        max_tokens: 60,
+        temperature: 0.2,
+      }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    res.textContent = data.choices?.[0]?.message?.content?.trim() || '—';
+  } catch(e) {
+    res.textContent = 'Ошибка: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '~ ккал';
 }
 
 function setMealQuality(q) {

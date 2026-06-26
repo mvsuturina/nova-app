@@ -35,6 +35,17 @@ async function initApp() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) { currentUser = session.user; await loadUserData(); }
   else setScreen('auth');
+
+  // При возврате в приложение (из фона/другой вкладки) проверяем сменилась ли дата
+  let _loadedDate = todayKey();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !currentUser) return;
+    const nowDate = todayKey();
+    if (nowDate !== _loadedDate) {
+      _loadedDate = nowDate;
+      loadUserData();
+    }
+  });
 }
 
 async function loadUserData() {
