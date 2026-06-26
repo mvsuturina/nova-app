@@ -510,44 +510,62 @@ function closeMealModal() {
 
 async function estimateMealCalories() {
   const raw  = mealModalData.description?.trim() || '';
-  // Убираем старую оценку перед отправкой
   const desc = raw.replace(/\n~\d+[^\n]+$/, '').trim();
   const btn  = document.getElementById('meal-kcal-btn');
   const res  = document.getElementById('meal-kcal-result');
-  if (!desc) { res.textContent = 'Сначала опиши что съела'; return; }
+
+  const photos = activeMealType ? (todayMealPhotos[activeMealType] || []) : [];
+  if (!desc && !photos.length) { res.textContent = 'Добавь описание или фото'; return; }
 
   const apiKey = profile.groq_api_key || localStorage.getItem('nova_api_key');
   if (!apiKey) { res.textContent = 'Нужен API ключ Groq в настройках'; return; }
 
   btn.disabled = true; btn.textContent = '...'; res.textContent = '';
 
+  const instruction = `Ты нутрициолог. Посчитай ккал и БЖУ.
+Правила:
+- Тарелка по умолчанию: плоская 24 см диаметр. Если в описании указан другой диаметр или что тарелка глубокая — используй это
+- По фото оцени заполненность тарелки (половина, 3/4, полная) и рассчитай объём/граммы исходя из диаметра
+- Если указаны граммы в описании — используй их, они точнее фото
+- Для каждого ингредиента посчитай отдельно, потом сложи
+- Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
+Отвечай ТОЛЬКО строкой: ~X ккал · Б Xг · Ж Xг · У Xг`;
+
   try {
+    let messages;
+    if (photos.length) {
+      // Отправляем все фото + описание в vision-модель
+      const imgContent = [
+        ...photos.map(url => ({ type: 'image_url', image_url: { url } })),
+        { type: 'text', text: instruction + (desc ? `\n\nОписание от пользователя: ${desc}` : '\nОпиши что видишь на тарелке и посчитай.') },
+      ];
+      messages = [{ role: 'user', content: imgContent }];
+    } else {
+      messages = [
+        { role: 'system', content: instruction },
+        { role: 'user',   content: desc },
+      ];
+    }
+
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: `Ты нутрициолог. Посчитай ккал и БЖУ по описанию еды.
-Правила:
-- Если указаны граммы — считай точно по ним (гречка 150г = ~170 ккал, куриная грудка 200г = ~220 ккал и т.д.)
-- Если граммы не указаны — используй среднюю порцию для этого блюда
-- Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
-- Сначала посчитай каждый ингредиент отдельно (внутри своих рассуждений), потом сложи
-Отвечай ТОЛЬКО итоговой строкой в формате: ~X ккал · Б Xг · Ж Xг · У Xг
-Никаких пояснений и расшифровок — только эта строка.` },
-          { role: 'user', content: desc },
-        ],
-        max_tokens: 60,
+        model: photos.length ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile',
+        messages,
+        max_tokens: 80,
         temperature: 0.1,
       }),
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
     const estimate = data.choices?.[0]?.message?.content?.trim() || '—';
-    res.textContent = estimate;
+    // Извлекаем только строку с форматом если модель добавила лишний текст
+    const match = estimate.match(/~\d+\s*ккал\s*·\s*Б\s*\d+г\s*·\s*Ж\s*\d+г\s*·\s*У\s*\d+г/);
+    const clean = match ? match[0] : estimate;
+    res.textContent = clean;
     const ta = document.getElementById('meal-modal-desc');
-    ta.value = desc + '\n' + estimate;
+    ta.value = (desc || '') + (desc ? '\n' : '') + clean;
     mealModalData.description = ta.value;
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
@@ -619,6 +637,7 @@ async function saveMealModal() {
   };
 
   renderTrackers();
+  renderScore();
   if (isFirstLog || (quality || null) !== prevQuality) await recalculateScore('meal_' + type);
 }
 

@@ -399,8 +399,15 @@ function dlRenderEvent(ev, ref, isLast) {
         </div>`
       : '';
 
-    const descHtml = ev.description?.trim()
-      ? `<div class="dl-journal-text" style="margin-top:6px;">${ev.description.trim()}</div>`
+    const rawDesc   = ev.description?.trim() || '';
+    const kcalMatch = rawDesc.match(/~\d+\s*ккал\s*·\s*Б\s*\d+г\s*·\s*Ж\s*\d+г\s*·\s*У\s*\d+г/);
+    const kcalLine  = kcalMatch ? kcalMatch[0] : null;
+    const cleanDesc = rawDesc.replace(/\n?~\d+[^\n]+$/, '').trim();
+    const descHtml  = cleanDesc
+      ? `<div class="dl-journal-text" style="margin-top:6px;">${cleanDesc}</div>`
+      : '';
+    const kcalHtml  = kcalLine
+      ? `<div style="font-size:11px;color:var(--purple-light);margin-top:5px;letter-spacing:0.5px;">${kcalLine}</div>`
       : '';
 
     const hungerParts = [];
@@ -416,7 +423,7 @@ function dlRenderEvent(ev, ref, isLast) {
       <div class="dl-dot-col"><div class="dl-dot dl-dot--meal"></div>${line}</div>
       <div class="dl-body">
         <div class="dl-title">${mealLabel}${qualityTag}</div>
-        ${photosHtml}${descHtml}${hungerHtml}
+        ${photosHtml}${descHtml}${kcalHtml}${hungerHtml}
       </div>
     </div>`;
   }
