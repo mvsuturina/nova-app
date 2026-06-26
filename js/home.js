@@ -29,7 +29,7 @@ function _normalizeNutritionText(text) {
     .replace(/\$([^$]*)\$/g, (_, inner) => inner.replace(/\\approx\s*/g, '').trim())
     .replace(/\$+/g, '')
     .replace(/\\approx\s*/g, '')
-    .replace(/(\d+)\s+г\b/g, '$1г')
+    .replace(/(\d+)\s+г/g, '$1г')
     .replace(/(\d+)\s+ккал/g, '$1ккал');
 }
 
