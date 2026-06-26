@@ -137,7 +137,8 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .meal-row { display: flex; gap: 8px; }
 
 /* ── карточки еды ── */
-.meal-card { flex: 1; flex-shrink: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 140px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center; filter: brightness(1.18); scroll-snap-align: start; }
+.meal-card { flex: 0 0 calc(50% - 4px); border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 140px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center; filter: brightness(1.18); scroll-snap-align: start; }
+.meal-row { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .meal-row::-webkit-scrollbar { display: none; }
 .meal-card.done { border-color: var(--purple); }
 .meal-card:active { opacity: 0.85; }

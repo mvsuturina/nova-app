@@ -507,7 +507,7 @@ function renderTrackers() {
         <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">ПРИЁМЫ ПИЩИ</div>
         <div style="font-size:10px;color:${mealCount === 3 ? 'var(--green)' : 'var(--text-faint)'};">${mealCount}/3</div>
       </div>
-      <div class="meal-row" style="overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+      <div class="meal-row">
         ${meals}
         ${snackCards}
         ${addSnackCard}
