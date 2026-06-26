@@ -134,11 +134,10 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 
 /* ── ТРЕКЕРЫ (еда и вода) ─────────────────────────────── */
 .tracker-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
-.meal-row { display: flex; gap: 8px; }
 
 /* ── карточки еды ── */
+.meal-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .meal-card { flex: 0 0 calc(50% - 4px); border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 140px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center; filter: brightness(1.18); scroll-snap-align: start; }
-.meal-row { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .meal-row::-webkit-scrollbar { display: none; }
 .meal-card.done { border-color: var(--purple); }
 .meal-card:active { opacity: 0.85; }

@@ -477,7 +477,7 @@ function renderTrackers() {
       : '';
     return `
       <div class="meal-card done" data-snack="${i}"
-           style="min-width:120px;${photo ? `background-image:url('${photo}')` : ''}"
+           style="${photo ? `background-image:url('${photo}')` : ''}"
            ondblclick="openSnackModal(${i})"
            ontouchstart="snackTouchStart(event,${i})"
            ontouchend="snackTouchEnd(event,${i})">
@@ -492,9 +492,8 @@ function renderTrackers() {
   }).join('');
 
   const addSnackCard = `
-    <div class="meal-card" style="min-width:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0.6;"
-         onclick="openSnackModal(null)">
-      <div style="text-align:center;">
+    <div class="meal-card" style="cursor:pointer;opacity:0.6;" onclick="openSnackModal(null)">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
         <div style="font-size:24px;color:var(--text-faint);line-height:1;">+</div>
         <div style="font-size:10px;color:var(--text-faint);letter-spacing:1px;margin-top:4px;">ПЕРЕКУС</div>
       </div>
