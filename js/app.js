@@ -189,7 +189,7 @@ async function loadUserData() {
     // Параллельно грузим активность, еду, воду, задачи
     const [actRes, mealRes, waterRes, td, je, mgData, sd] = await Promise.all([
       sb.from('activity_log').select('activity_type').eq('user_id', currentUser.id).eq('date', today),
-      sb.from('meal_log').select('id, meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_urls, nutrition_json')
+      sb.from('meal_log').select('id, meal_type, quality, description, hunger_before, hunger_after, hunger_after_hour, photo_urls, nutrition_json, created_at')
         .eq('user_id', currentUser.id).eq('date', today),
       sb.from('water_log').select('id').eq('user_id', currentUser.id).eq('date', today),
       sb.from('daily_tasks')
@@ -232,6 +232,7 @@ async function loadUserData() {
     }
     todaySnacks = mealRows
       .filter(m => m.meal_type === 'snack')
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
       .map(row => ({
         id:             row.id ?? null,
         description:    row.description       || null,
@@ -242,6 +243,7 @@ async function loadUserData() {
         nutritionJson:  row.nutrition_json     || null,
         photos:         row.photo_urls         || [],
         carouselIdx:    0,
+        createdAt:      row.created_at         || null,
       }));
 
     todayWaterCount = (waterRes.data || []).length;

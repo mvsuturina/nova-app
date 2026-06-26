@@ -406,41 +406,81 @@ function renderTrackers() {
       </div>
     </div>`;
 
-  // Карточки еды
-  const meals = ['breakfast', 'lunch', 'dinner'].map(type => {
-    const { label, window } = MEAL_WINDOWS[type];
-    const meal   = todayMeals[type];
-    const photos = todayMealPhotos[type] || [];
-    const idx    = mealCarouselIdx[type] || 0;
-    const photo  = photos[idx] || null;
+  // Карточки еды — объединяем приёмы и перекусы, сортируем по времени добавления
+  const MEAL_SORT_HOUR = { breakfast: 7, lunch: 12, dinner: 18 };
 
-    const qualityTag = meal.quality === 'plan'
-      ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
-      : meal.quality === 'slip'
-      ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
-      : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
+  const mealItems = ['breakfast', 'lunch', 'dinner'].map(type => ({
+    kind: 'meal', type, hour: MEAL_SORT_HOUR[type],
+  }));
+  const snackItems = todaySnacks.map((snack, i) => ({
+    kind: 'snack', idx: i,
+    hour: snack.createdAt ? new Date(snack.createdAt).getHours() + new Date(snack.createdAt).getMinutes() / 60 : 11,
+  }));
 
-    const dots = photos.length > 1
-      ? `<div class="meal-dots">${photos.map((_, i) =>
-          `<span class="meal-dot${i === idx ? ' active' : ''}"></span>`
-        ).join('')}</div>`
-      : '';
+  const allFoodItems = [...mealItems, ...snackItems].sort((a, b) => a.hour - b.hour);
 
-    return `
-      <div class="meal-card${meal.done ? ' done' : ''}"
-           data-meal="${type}"
-           style="${photo ? `background-image:url('${photo}')` : ''}"
-           ondblclick="openMealModal('${type}')"
-           ontouchstart="mealTouchStart(event,'${type}')"
-           ontouchend="mealTouchEnd(event,'${type}')">
-        <div class="meal-card-overlay"></div>
-        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-        ${dots}
-        <div class="meal-card-label">
-          <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
-          <div class="meal-slot-name">${label} ${qualityTag}</div>
-        </div>
-      </div>`;
+  const allFoodCards = allFoodItems.map(item => {
+    if (item.kind === 'meal') {
+      const type   = item.type;
+      const { label, window } = MEAL_WINDOWS[type];
+      const meal   = todayMeals[type];
+      const photos = todayMealPhotos[type] || [];
+      const idx    = mealCarouselIdx[type] || 0;
+      const photo  = photos[idx] || null;
+      const qualityTag = meal.quality === 'plan'
+        ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
+        : meal.quality === 'slip'
+        ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
+        : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
+      const dots = photos.length > 1
+        ? `<div class="meal-dots">${photos.map((_, i) =>
+            `<span class="meal-dot${i === idx ? ' active' : ''}"></span>`
+          ).join('')}</div>`
+        : '';
+      return `
+        <div class="meal-card${meal.done ? ' done' : ''}"
+             data-meal="${type}"
+             style="${photo ? `background-image:url('${photo}')` : ''}"
+             ondblclick="openMealModal('${type}')"
+             ontouchstart="mealTouchStart(event,'${type}')"
+             ontouchend="mealTouchEnd(event,'${type}')">
+          <div class="meal-card-overlay"></div>
+          ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
+          ${dots}
+          <div class="meal-card-label">
+            <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
+            <div class="meal-slot-name">${label} ${qualityTag}</div>
+          </div>
+        </div>`;
+    } else {
+      const i     = item.idx;
+      const snack = todaySnacks[i];
+      const photo = snack.photos[snack.carouselIdx] || null;
+      const dots  = snack.photos.length > 1
+        ? `<div class="meal-dots">${snack.photos.map((_, pi) =>
+            `<span class="meal-dot${pi === snack.carouselIdx ? ' active' : ''}"></span>`
+          ).join('')}</div>`
+        : '';
+      const qualityTag = snack.quality === 'plan'
+        ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
+        : snack.quality === 'slip'
+        ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
+        : '';
+      return `
+        <div class="meal-card done" data-snack="${i}"
+             style="${photo ? `background-image:url('${photo}')` : ''}"
+             ondblclick="openSnackModal(${i})"
+             ontouchstart="snackTouchStart(event,${i})"
+             ontouchend="snackTouchEnd(event,${i})">
+          <div class="meal-card-overlay"></div>
+          ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
+          ${dots}
+          <div class="meal-card-label">
+            <div class="meal-slot-icon">✓</div>
+            <div class="meal-slot-name">Перекус ${qualityTag}</div>
+          </div>
+        </div>`;
+    }
   }).join('');
 
   // Активность
@@ -462,35 +502,6 @@ function renderTrackers() {
 
   const mealCount = ['breakfast','lunch','dinner'].filter(t => todayMeals[t].done).length;
 
-  // Снеки
-  const snackCards = todaySnacks.map((snack, i) => {
-    const photo = snack.photos[snack.carouselIdx] || null;
-    const dots  = snack.photos.length > 1
-      ? `<div class="meal-dots">${snack.photos.map((_, pi) =>
-          `<span class="meal-dot${pi === snack.carouselIdx ? ' active' : ''}"></span>`
-        ).join('')}</div>`
-      : '';
-    const qualityTag = snack.quality === 'plan'
-      ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
-      : snack.quality === 'slip'
-      ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
-      : '';
-    return `
-      <div class="meal-card done" data-snack="${i}"
-           style="${photo ? `background-image:url('${photo}')` : ''}"
-           ondblclick="openSnackModal(${i})"
-           ontouchstart="snackTouchStart(event,${i})"
-           ontouchend="snackTouchEnd(event,${i})">
-        <div class="meal-card-overlay"></div>
-        ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-        ${dots}
-        <div class="meal-card-label">
-          <div class="meal-slot-icon">✓</div>
-          <div class="meal-slot-name">Перекус ${qualityTag}</div>
-        </div>
-      </div>`;
-  }).join('');
-
   container.innerHTML = `
     ${factsHtml}
     <div class="tracker-block">
@@ -503,8 +514,7 @@ function renderTrackers() {
                        padding:0;line-height:1;flex-shrink:0;">+</button>
       </div>
       <div class="meal-row">
-        ${meals}
-        ${snackCards}
+        ${allFoodCards}
       </div>
     </div>
     <div class="tracker-block">
@@ -781,12 +791,14 @@ async function saveSnackModal() {
       user_id: currentUser.id, date: today, meal_type: 'snack',
       in_window: false, ...fields,
     }).select('id').single();
+    const _now = new Date().toISOString();
     todaySnacks.push({
       id: data?.id || null,
       description: description?.trim()||null,
       quality, hungerBefore, hungerAfter, hungerAfterHour,
       nutritionJson: _mealNutrition || null,
       photos: [], carouselIdx: 0,
+      createdAt: _now,
     });
   }
   closeMealModal();
@@ -837,6 +849,7 @@ async function handleSnackPhotoFromModal(input) {
       id: data?.id || null,
       description: null, quality: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null,
       nutritionJson: null, photos: [photoUrl], carouselIdx: 0,
+      createdAt: new Date().toISOString(),
     };
     if (data?.id) await sb.from('meal_log').update({ photo_urls: [photoUrl] }).eq('id', data.id);
     todaySnacks.push(newSnack);
@@ -969,9 +982,11 @@ async function estimateMealCalories() {
   const photos = activeMealType === 'snack'
     ? (todaySnacks[activeSnackIdx]?.photos || [])
     : (activeMealType ? (todayMealPhotos[activeMealType] || []) : []);
+  console.log('[kcal] activeMealType:', activeMealType, 'activeSnackIdx:', activeSnackIdx, 'photos:', photos, 'desc:', desc);
   if (!desc && !photos.length) { res.textContent = 'Добавь описание или фото'; return; }
 
   const apiKey = profile.groq_api_key || localStorage.getItem('nova_api_key');
+  console.log('[kcal] apiKey present:', !!apiKey);
   if (!apiKey) { res.textContent = 'Нужен API ключ Groq в настройках'; return; }
 
   btn.disabled = true; btn.textContent = '...'; res.textContent = '';
@@ -1003,6 +1018,7 @@ async function estimateMealCalories() {
       ];
     }
 
+    console.log('[kcal] sending fetch, photos:', photos.length, 'desc:', desc.slice(0,40));
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
