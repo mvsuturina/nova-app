@@ -24,22 +24,62 @@ function _parseMealKcal(desc) {
   return m ? { kcal: +m[1], p: +m[2], f: +m[3], c: +m[4] } : null;
 }
 
+function _normalizeNutritionText(text) {
+  return text
+    .replace(/\$([^$]*)\$/g, (_, inner) => inner.replace(/\\approx\s*/g, '').trim())
+    .replace(/\$+/g, '')
+    .replace(/\\approx\s*/g, '')
+    .replace(/(\d+)\s+г\b/g, '$1г')
+    .replace(/(\d+)\s+ккал/g, '$1ккал');
+}
+
 function _parseNutritionResponse(text) {
-  const SEP = /\s*[·•\-–]\s*/;
-  // Items: "- Название Xг: X ккал · Б Xг · Ж Xг · У Xг" — гибкий матч
+  const clean = _normalizeNutritionText(text);
   const items = [];
-  const itemRe = /[-•*]\s*(.+?)\s*[\(（]?(\d+)\s*г[\)）]?\s*:?\s*[~≈]?(\d+)\s*ккал[^Б\n]*Б\s*(\d+)\s*г[^Ж\n]*Ж\s*(\d+)\s*г[^У\n]*У\s*(\d+)\s*г/gim;
-  let m;
-  while ((m = itemRe.exec(text)) !== null) {
-    items.push({ name: m[1].trim(), grams: +m[2], kcal: +m[3], p: +m[4], f: +m[5], c: +m[6] });
+
+  for (const line of clean.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.includes('ккал')) continue;
+    if (/итого|всего|total|^[~≈]/i.test(trimmed)) continue;
+
+    // Делим на "описание+граммы" и "КБЖУ" по двоеточию
+    const ci = trimmed.indexOf(':');
+    if (ci === -1) continue;
+    const left  = trimmed.slice(0, ci);
+    const right = trimmed.slice(ci + 1);
+
+    const wM    = left.match(/(\d+)\s*г\s*$/);
+    if (!wM) continue;
+    const grams = +wM[1];
+    const name  = left.slice(0, left.lastIndexOf(wM[0]))
+      .replace(/^[-•*\s]+/, '').replace(/\d+\s*шт\.?/g, '').replace(/[~≈\\]/g, '').trim() || '—';
+
+    const kM = right.match(/(\d+)\s*ккал/);
+    const pM = right.match(/Б\s*(\d+)/);
+    const fM = right.match(/Ж\s*(\d+)/);
+    const cM = right.match(/У\s*(\d+)/);
+    if (!kM || !pM || !fM || !cM) continue;
+
+    items.push({ name, grams, kcal: +kM[1], p: +pM[1], f: +fM[1], c: +cM[1] });
   }
-  // Total: любая строка с ккал · Б · Ж · У (с ~ или без)
-  const totM = text.match(/[~≈]?\s*(\d+)\s*ккал[^Б\n]*Б\s*(\d+)\s*г[^Ж\n]*Ж\s*(\d+)\s*г[^У\n]*У\s*(\d+)\s*г/i);
-  if (!totM && !items.length) return null;
-  // Если итог не найден — посчитаем из items
-  const total = totM
-    ? { kcal: +totM[1], p: +totM[2], f: +totM[3], c: +totM[4] }
-    : items.reduce((a, it) => ({ kcal: a.kcal+it.kcal, p: a.p+it.p, f: a.f+it.f, c: a.c+it.c }), { kcal:0, p:0, f:0, c:0 });
+
+  // Ищем итоговую строку
+  let total = null;
+  for (const line of clean.split('\n')) {
+    const t = line.trim();
+    if (!t.includes('ккал')) continue;
+    if (!/итого|всего|total|^[~≈]/i.test(t) && !t.startsWith('~')) continue;
+    const kM = t.match(/(\d+)\s*ккал/);
+    const pM = t.match(/Б\s*(\d+)/);
+    const fM = t.match(/Ж\s*(\d+)/);
+    const cM = t.match(/У\s*(\d+)/);
+    if (kM && pM && fM && cM) { total = { kcal: +kM[1], p: +pM[1], f: +fM[1], c: +cM[1] }; break; }
+  }
+
+  if (!total && items.length)
+    total = items.reduce((a, it) => ({ kcal: a.kcal+it.kcal, p: a.p+it.p, f: a.f+it.f, c: a.c+it.c }), { kcal:0, p:0, f:0, c:0 });
+
+  if (!total) return null;
   return { items, total };
 }
 
@@ -621,7 +661,7 @@ async function estimateMealCalories() {
 - По фото оцени заполненность тарелки и рассчитай граммы исходя из диаметра
 - Если указаны граммы в описании — используй их, они точнее фото
 - Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
-Формат ответа — СТРОГО такой, без лишнего текста:
+Формат ответа — СТРОГО такой, без лишнего текста, БЕЗ LaTeX, БЕЗ знаков $, только цифры:
 - Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
 - Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
 ~X ккал · Б Xг · Ж Xг · У Xг`;
