@@ -216,17 +216,16 @@ function renderSurveyCta() {
   const hour = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
 
   const surveys = [
-    { id: 'survey-cta',  show: todayScore === null,   fn: 'showSurvey()',  label: 'НАЧАЛО',        bg: '',                                          from:  0 },
-    { id: 'survey2-cta', show: !todaySurvey2Done, fn: 'showSurvey2()', label: 'ЧЕКАП 7:00',    bg: 'linear-gradient(135deg,#0f3460,#16213e)', from:  7 },
-    { id: 'survey3-cta', show: !todaySurvey3Done, fn: 'showSurvey3()', label: 'ЧЕКАП 10:00',   bg: 'linear-gradient(135deg,#0a2030,#071520)', from: 10 },
-    { id: 'survey4-cta', show: !todaySurvey4Done, fn: 'showSurvey4()', label: 'ЧЕКАП 13:00',   bg: 'linear-gradient(135deg,#0a1e30,#060f18)', from: 13 },
-    { id: 'survey5-cta', show: !todaySurvey5Done, fn: 'showSurvey5()', label: 'ЧЕКАП 16:00',   bg: 'linear-gradient(135deg,#0a1830,#050c18)', from: 16 },
-    { id: 'survey6-cta', show: !todaySurvey6Done, fn: 'showSurvey6()', label: 'РЕФЛЕКСИЯ ДНЯ', bg: 'linear-gradient(135deg,#1a0a30,#0d0518)', from: 19 },
+    { id: 'survey-cta',  done: todayScore !== null,  fn: 'showSurvey()',  label: 'НАЧАЛО',        bg: '',                                          from:  0 },
+    { id: 'survey2-cta', done: todaySurvey2Done, fn: 'showSurvey2()', label: 'ЧЕКАП 7:00',    bg: 'linear-gradient(135deg,#0f3460,#16213e)', from:  7 },
+    { id: 'survey3-cta', done: todaySurvey3Done, fn: 'showSurvey3()', label: 'ЧЕКАП 10:00',   bg: 'linear-gradient(135deg,#0a2030,#071520)', from: 10 },
+    { id: 'survey4-cta', done: todaySurvey4Done, fn: 'showSurvey4()', label: 'ЧЕКАП 13:00',   bg: 'linear-gradient(135deg,#0a1e30,#060f18)', from: 13 },
+    { id: 'survey5-cta', done: todaySurvey5Done, fn: 'showSurvey5()', label: 'ЧЕКАП 16:00',   bg: 'linear-gradient(135deg,#0a1830,#050c18)', from: 16 },
+    { id: 'survey6-cta', done: todaySurvey6Done, fn: 'showSurvey6()', label: 'РЕФЛЕКСИЯ ДНЯ', bg: 'linear-gradient(135deg,#1a0a30,#0d0518)', from: 19 },
   ];
 
   surveys.forEach(s => {
-    if (!s.show) return;
-    const locked = hour < s.from && !forceUnlockedSurveys.has(s.id);
+    const locked = !s.done && hour < s.from && !forceUnlockedSurveys.has(s.id);
 
     const wrap = document.createElement('div');
     wrap.id = s.id;
@@ -238,13 +237,20 @@ function renderSurveyCta() {
     btn.style.padding = '10px 8px';
     btn.style.fontSize = '11px';
     btn.style.letterSpacing = '1px';
-    if (s.bg) btn.style.background = s.bg;
+    btn.style.width = '100%';
 
-    if (locked) {
+    if (s.done) {
+      btn.textContent = '✓ ' + s.label;
+      btn.style.background = 'none';
+      btn.style.border = '1px solid rgba(255,255,255,0.08)';
+      btn.style.color = 'rgba(255,255,255,0.25)';
+      btn.style.cursor = 'default';
+      btn.style.textDecoration = 'line-through';
+    } else if (locked) {
+      if (s.bg) btn.style.background = s.bg;
       btn.textContent = `${s.label} · ${s.from}:00`;
       btn.style.opacity = '0.35';
       btn.style.cursor  = 'default';
-      btn.style.width   = '100%';
 
       const unlockBtn = document.createElement('button');
       unlockBtn.textContent = '🔓 досрочно';
@@ -252,16 +258,17 @@ function renderSurveyCta() {
         'color:var(--text-faint);font-size:10px;font-family:"Jost",sans-serif;' +
         'letter-spacing:0.5px;cursor:pointer;padding:3px 6px;';
       unlockBtn.onclick = () => { forceUnlockedSurveys.add(s.id); renderSurveyCta(); };
-
       wrap.appendChild(btn);
       wrap.appendChild(unlockBtn);
+      panel.appendChild(wrap);
+      return;
     } else {
+      if (s.bg) btn.style.background = s.bg;
       btn.textContent = s.label + ' →';
-      btn.style.width = '100%';
       btn.onclick = new Function(s.fn);
-      wrap.appendChild(btn);
     }
 
+    wrap.appendChild(btn);
     panel.appendChild(wrap);
   });
 
