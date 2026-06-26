@@ -209,13 +209,9 @@ function renderScore() {
 }
 
 function renderSurveyCta() {
-  document.getElementById('survey-cta')?.remove();
-  ['2','3','4','5','6'].forEach(n => document.getElementById('survey' + n + '-cta')?.remove());
-  document.getElementById('sos-cta')?.remove();
-
-  const scroll = document.querySelector('.home-scroll');
-  if (!scroll) return;
-  const ref = scroll.firstElementChild;
+  const panel = document.getElementById('checkins-panel');
+  if (!panel) return;
+  panel.innerHTML = '';
 
   const hour = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
 
@@ -234,22 +230,27 @@ function renderSurveyCta() {
 
     const wrap = document.createElement('div');
     wrap.id = s.id;
+    wrap.style.marginBottom = '8px';
 
     const btn = document.createElement('button');
     btn.className = 'survey-cta';
+    btn.style.marginBottom = '0';
+    btn.style.padding = '10px 8px';
+    btn.style.fontSize = '11px';
+    btn.style.letterSpacing = '1px';
     if (s.bg) btn.style.background = s.bg;
 
     if (locked) {
-      btn.textContent = `${s.label}  ·  с ${s.from}:00`;
+      btn.textContent = `${s.label} · ${s.from}:00`;
       btn.style.opacity = '0.35';
       btn.style.cursor  = 'default';
       btn.style.width   = '100%';
 
       const unlockBtn = document.createElement('button');
-      unlockBtn.textContent = '🔓 разлочить досрочно';
-      unlockBtn.style.cssText = 'display:block;margin:4px auto 0;background:none;border:none;' +
-        'color:var(--text-faint);font-size:11px;font-family:"Jost",sans-serif;' +
-        'letter-spacing:1px;cursor:pointer;padding:4px 8px;';
+      unlockBtn.textContent = '🔓 досрочно';
+      unlockBtn.style.cssText = 'display:block;margin:3px auto 0;background:none;border:none;' +
+        'color:var(--text-faint);font-size:10px;font-family:"Jost",sans-serif;' +
+        'letter-spacing:0.5px;cursor:pointer;padding:3px 6px;';
       unlockBtn.onclick = () => { forceUnlockedSurveys.add(s.id); renderSurveyCta(); };
 
       wrap.appendChild(btn);
@@ -261,20 +262,21 @@ function renderSurveyCta() {
       wrap.appendChild(btn);
     }
 
-    ref.parentNode.insertBefore(wrap, ref);
+    panel.appendChild(wrap);
   });
 
-  // SOS — всегда доступен, без лока по времени, можно использовать несколько раз
+  // SOS
   const sosWrap = document.createElement('div');
   sosWrap.id = 'sos-cta';
+  sosWrap.style.marginTop = '4px';
   const sosBtn = document.createElement('button');
   sosBtn.style.cssText = 'width:100%;background:none;border:1px solid rgba(180,40,40,0.35);' +
-    'border-radius:12px;padding:12px 20px;color:var(--red);' +
-    'font-family:"Jost",sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;';
-  sosBtn.textContent = 'SOS · ЗАФИКСИРОВАТЬ МОМЕНТ';
+    'border-radius:12px;padding:10px 6px;color:var(--red);' +
+    'font-family:"Jost",sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;';
+  sosBtn.textContent = 'SOS';
   sosBtn.onclick = showSos;
   sosWrap.appendChild(sosBtn);
-  ref.parentNode.insertBefore(sosWrap, ref);
+  panel.appendChild(sosWrap);
 }
 
 function renderMiniGoals() {

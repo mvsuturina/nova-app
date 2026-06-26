@@ -148,29 +148,39 @@
       </div>
 
       <div id="trackers-container"></div>
-      <div id="mini-goals-container"></div>
 
-      <div class="section-label" id="tasks-label" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>ЗАДАЧИ ДНЯ</span>
-        <button onclick="toggleAddTask()" id="add-task-btn"
-                style="background:none;border:1px solid var(--border);border-radius:50%;
-                       color:var(--text-muted);font-size:16px;width:24px;height:24px;
-                       cursor:pointer;display:flex;align-items:center;justify-content:center;
-                       padding:0;line-height:1;">+</button>
-      </div>
-      <div id="add-task-row" style="display:none;margin-bottom:8px;">
-        <div style="display:flex;gap:8px;">
-          <input id="add-task-input" placeholder="Название задачи..."
-                 style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-                        color:var(--text);font-family:'Jost',sans-serif;font-size:14px;padding:10px 14px;"
-                 onkeydown="if(event.key==='Enter')submitAddTask()">
-          <button onclick="submitAddTask()"
-                  style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-                         color:var(--text-muted);font-size:18px;padding:0 14px;cursor:pointer;">↵</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;">
+
+        <!-- Левый столбец: мини-цели + задачи -->
+        <div>
+          <div id="mini-goals-container"></div>
+
+          <div class="section-label" id="tasks-label" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>ЗАДАЧИ</span>
+            <button onclick="toggleAddTask()" id="add-task-btn"
+                    style="background:none;border:1px solid var(--border);border-radius:50%;
+                           color:var(--text-muted);font-size:16px;width:24px;height:24px;
+                           cursor:pointer;display:flex;align-items:center;justify-content:center;
+                           padding:0;line-height:1;">+</button>
+          </div>
+          <div id="add-task-row" style="display:none;margin-bottom:8px;">
+            <div style="display:flex;gap:6px;">
+              <input id="add-task-input" placeholder="Задача..."
+                     style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+                            color:var(--text);font-family:'Jost',sans-serif;font-size:13px;padding:8px 10px;"
+                     onkeydown="if(event.key==='Enter')submitAddTask()">
+              <button onclick="submitAddTask()"
+                      style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+                             color:var(--text-muted);font-size:18px;padding:0 12px;cursor:pointer;">↵</button>
+            </div>
+          </div>
+          <div class="block-card" id="daily-tasks-list">
+            <div class="empty-state">Задачи появятся после первого опроса</div>
+          </div>
         </div>
-      </div>
-      <div class="block-card" id="daily-tasks-list">
-        <div class="empty-state">Задачи появятся после первого опроса</div>
+
+        <!-- Правый столбец: чекапы -->
+        <div id="checkins-panel"></div>
       </div>
 
       <div class="section-label">НАПИСАТЬ NOVA</div>
