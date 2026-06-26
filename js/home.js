@@ -639,7 +639,7 @@ async function estimateMealCalories() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: photos.length ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile',
+        model: photos.length ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
         messages,
         max_tokens: 80,
         temperature: 0.1,
