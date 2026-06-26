@@ -693,6 +693,7 @@ function updateSnackCarousel(idx) {
 }
 
 function openSnackModal(idx) {
+  try {
   activeSnackIdx = idx;
   activeMealType = 'snack';
   const snack = idx !== null ? todaySnacks[idx] : null;
@@ -750,6 +751,7 @@ function openSnackModal(idx) {
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
+  } catch(e) { console.error('openSnackModal error:', e); alert('Ошибка: ' + e.message); }
 }
 
 async function saveSnackModal() {
