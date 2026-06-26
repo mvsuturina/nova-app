@@ -25,15 +25,22 @@ function _parseMealKcal(desc) {
 }
 
 function _parseNutritionResponse(text) {
+  const SEP = /\s*[·•\-–]\s*/;
+  // Items: "- Название Xг: X ккал · Б Xг · Ж Xг · У Xг" — гибкий матч
   const items = [];
-  const itemRe = /[-•*]\s*(.+?)\s+(\d+)г:\s*(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/gm;
+  const itemRe = /[-•*]\s*(.+?)\s*[\(（]?(\d+)\s*г[\)）]?\s*:?\s*[~≈]?(\d+)\s*ккал[^Б\n]*Б\s*(\d+)\s*г[^Ж\n]*Ж\s*(\d+)\s*г[^У\n]*У\s*(\d+)\s*г/gim;
   let m;
   while ((m = itemRe.exec(text)) !== null) {
     items.push({ name: m[1].trim(), grams: +m[2], kcal: +m[3], p: +m[4], f: +m[5], c: +m[6] });
   }
-  const totM = text.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
-  if (!totM) return null;
-  return { items, total: { kcal: +totM[1], p: +totM[2], f: +totM[3], c: +totM[4] } };
+  // Total: любая строка с ккал · Б · Ж · У (с ~ или без)
+  const totM = text.match(/[~≈]?\s*(\d+)\s*ккал[^Б\n]*Б\s*(\d+)\s*г[^Ж\n]*Ж\s*(\d+)\s*г[^У\n]*У\s*(\d+)\s*г/i);
+  if (!totM && !items.length) return null;
+  // Если итог не найден — посчитаем из items
+  const total = totM
+    ? { kcal: +totM[1], p: +totM[2], f: +totM[3], c: +totM[4] }
+    : items.reduce((a, it) => ({ kcal: a.kcal+it.kcal, p: a.p+it.p, f: a.f+it.f, c: a.c+it.c }), { kcal:0, p:0, f:0, c:0 });
+  return { items, total };
 }
 
 function _recalcNutritionTotal() {
@@ -648,13 +655,14 @@ async function estimateMealCalories() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
-    const match = raw.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
-    const totalLine = match ? match[0] : '—';
-    res.textContent = totalLine;
-    // Парсим разбивку
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
-    // Записываем итог в textarea
+    // Формируем итоговую строку
+    const t = _mealNutrition?.total;
+    const totalLine = t
+      ? `~${t.kcal} ккал · Б ${t.p}г · Ж ${t.f}г · У ${t.c}г`
+      : (raw.match(/[~≈]?\s*\d+\s*ккал[^\n]*/i)?.[0]?.trim() || '—');
+    res.textContent = totalLine;
     const ta = document.getElementById('meal-modal-desc');
     ta.value = (desc || '') + (desc ? '\n' : '') + totalLine;
     mealModalData.description = ta.value;
