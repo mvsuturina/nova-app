@@ -722,7 +722,7 @@ function openSnackModal(idx) {
   const kcalRes = document.getElementById('meal-kcal-result');
   if (kcalRes) kcalRes.textContent = '';
   _mealNutrition = snack?.nutritionJson || null;
-  renderMealNutritionBreakdown();
+  _renderNutritionBreakdown();
 
   // Фото
   const photoArr = snack?.photos || [];
