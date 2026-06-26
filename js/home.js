@@ -18,6 +18,12 @@ function renderHome() {
   renderDailyTasks();
 }
 
+function _parseMealKcal(desc) {
+  if (!desc) return null;
+  const m = desc.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
+  return m ? { kcal: +m[1], p: +m[2], f: +m[3], c: +m[4] } : null;
+}
+
 function renderScore() {
   const valueEl = document.getElementById('score-value');
   const fillEl  = document.getElementById('score-fill');
@@ -47,6 +53,19 @@ function renderScore() {
   zoneEl.textContent  = ZONE_LABELS[zone];
   zoneEl.className    = `score-zone ${zone}`;
   document.getElementById('score-desc').textContent = ZONE_DESCS[zone];
+
+  const kcalEl = document.getElementById('score-kcal');
+  if (kcalEl) {
+    const totals = ['breakfast', 'lunch', 'dinner'].reduce((acc, t) => {
+      const parsed = _parseMealKcal(todayMeals[t]?.description);
+      if (parsed) { acc.kcal += parsed.kcal; acc.p += parsed.p; acc.f += parsed.f; acc.c += parsed.c; acc.n++; }
+      return acc;
+    }, { kcal: 0, p: 0, f: 0, c: 0, n: 0 });
+    kcalEl.textContent = totals.n
+      ? `~${totals.kcal} ккал  ·  Б ${totals.p}г  Ж ${totals.f}г  У ${totals.c}г`
+      : '';
+  }
+
   const btn = document.getElementById('breakdown-btn');
   if (btn) btn.style.display = 'block';
 }
@@ -516,7 +535,12 @@ async function estimateMealCalories() {
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
-    res.textContent = data.choices?.[0]?.message?.content?.trim() || '—';
+    const estimate = data.choices?.[0]?.message?.content?.trim() || '—';
+    res.textContent = estimate;
+    const ta = document.getElementById('meal-modal-desc');
+    const current = ta.value.replace(/\n~.+$/, '').trimEnd();
+    ta.value = current + '\n' + estimate;
+    mealModalData.description = ta.value;
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
   }
