@@ -339,11 +339,12 @@ async function showToolSelection(sessionId, surveyId) {
   body.innerHTML = '<div class="empty-state">Загружаю практики...</div>';
 
   const { data: links } = await sb.from('survey_tools')
-    .select('tool:tool_id(id, name, duration_min, weight, is_red_zone)')
+    .select('tool:tool_id(id, name, duration_min, weight)')
     .eq('survey_id', surveyId)
     .order('tool_id');
+  const redZoneIds = new Set((surveyRef?.redZoneTools || []).map(t => t.id));
   const isRed = todayScore !== null && todayScore >= 65;
-  const tools = (links || []).map(l => l.tool).filter(t => t && (!t.is_red_zone || isRed));
+  const tools = (links || []).map(l => l.tool).filter(t => t && (!redZoneIds.has(t.id) || isRed));
 
   selectedTools = [];
   const zone      = getZone(todayScore);
@@ -573,12 +574,11 @@ async function _showSosTools() {
   body.innerHTML = '<div class="empty-state">Загружаю практики...</div>';
 
   const { data: links } = await sb.from('survey_tools')
-    .select('tool:tool_id(id, name, duration_min, weight, is_red_zone)')
+    .select('tool:tool_id(id, name, duration_min, weight)')
     .eq('survey_id', 6)
     .order('tool_id');
 
-  const isRed = todayScore !== null && todayScore >= 65;
-  const tools = (links || []).map(l => l.tool).filter(t => t && (!t.is_red_zone || isRed));
+  const tools = (links || []).map(l => l.tool).filter(Boolean);
 
   selectedTools = [];
 
