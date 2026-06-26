@@ -206,8 +206,6 @@ function renderScore() {
 
   const btn = document.getElementById('breakdown-btn');
   if (btn) btn.style.display = 'block';
-
-  renderTools();
 }
 
 function renderTools() {
