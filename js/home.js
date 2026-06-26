@@ -491,28 +491,20 @@ function renderTrackers() {
       </div>`;
   }).join('');
 
-  const addSnackCard = `
-    <div class="meal-card meal-card-add"
-         onclick="openSnackModal(null)"
-         ontouchstart="this._tx=event.touches[0].clientX;this._ty=event.touches[0].clientY;"
-         ontouchend="if(Math.abs(event.changedTouches[0].clientX-this._tx)<15&&Math.abs(event.changedTouches[0].clientY-this._ty)<15){event.preventDefault();openSnackModal(null);}">
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0.6;">
-        <div style="font-size:28px;color:var(--text-faint);line-height:1;">+</div>
-        <div style="font-size:10px;color:var(--text-faint);letter-spacing:1px;margin-top:4px;">ПЕРЕКУС</div>
-      </div>
-    </div>`;
-
   container.innerHTML = `
     ${factsHtml}
     <div class="tracker-block">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;">ПРИЁМЫ ПИЩИ</div>
-        <div style="font-size:10px;color:${mealCount === 3 ? 'var(--green)' : 'var(--text-faint)'};">${mealCount}/3</div>
+        <button onclick="openSnackModal(null)"
+                style="background:none;border:1px solid var(--border);border-radius:50%;
+                       color:var(--text-muted);font-size:16px;width:24px;height:24px;
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;
+                       padding:0;line-height:1;flex-shrink:0;">+</button>
       </div>
       <div class="meal-row">
         ${meals}
         ${snackCards}
-        ${addSnackCard}
       </div>
     </div>
     <div class="tracker-block">
