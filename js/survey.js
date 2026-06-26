@@ -559,11 +559,79 @@ async function _submitSos() {
     todayEventDeltas = [...todayEventDeltas, { delta, description: description?.trim() || null }];
 
     await recalculateScore('sos');
-    closeSos();
     renderHome();
+    await _showSosTools();
   } catch (err) {
     console.error('SOS submit error:', err);
     btn.disabled  = false;
     btn.textContent = 'ЗАФИКСИРОВАТЬ →';
   }
+}
+
+async function _showSosTools() {
+  const body = document.getElementById('sos-body');
+  body.innerHTML = '<div class="empty-state">Загружаю практики...</div>';
+
+  const { data: links } = await sb.from('survey_tools')
+    .select('tool:tool_id(id, name, duration_min, weight, is_red_zone)')
+    .eq('survey_id', 6)
+    .order('tool_id');
+
+  const isRed = todayScore !== null && todayScore >= 65;
+  const tools = (links || []).map(l => l.tool).filter(t => t && (!t.is_red_zone || isRed));
+
+  selectedTools = [];
+
+  if (!tools.length) { closeSos(); return; }
+
+  const zone      = getZone(todayScore);
+  const zoneColor = { green: 'var(--green)', yellow: 'var(--gold)', red: 'var(--red)', catastrophe: 'var(--red)' }[zone] || 'var(--text)';
+
+  body.innerHTML = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;letter-spacing:3px;color:var(--text-faint);margin-bottom:4px;">СКОР ОБНОВЛЁН</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:48px;font-weight:300;line-height:1;color:${zoneColor};">${Math.max(0, todayScore)}</div>
+    </div>
+    <div class="section-label">ВЫБЕРИ ПРАКТИКИ ДЛЯ СНИЖЕНИЯ НАПРЯЖЕНИЯ</div>
+    ${tools.map(t => `
+      <div class="tool-option" id="sos-tool-${t.id}" onclick="toggleSosTool(${t.id})">
+        <div class="tool-check" id="sos-toolchk-${t.id}"></div>
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-dur">${t.duration_min} мин</div>
+      </div>`).join('')}
+    <button class="save-btn" onclick="_saveSosTools()" style="margin-top:16px;">ДОБАВИТЬ В ДЕНЬ →</button>
+    <button onclick="closeSos()"
+            style="background:none;border:none;color:var(--text-faint);font-size:13px;
+                   font-family:'Jost',sans-serif;display:block;margin:14px auto 0;
+                   cursor:pointer;padding:8px;letter-spacing:1px;">
+      пропустить
+    </button>`;
+}
+
+function toggleSosTool(id) {
+  const idx = selectedTools.indexOf(id);
+  if (idx === -1) selectedTools.push(id);
+  else selectedTools.splice(idx, 1);
+  document.getElementById(`sos-tool-${id}`)?.classList.toggle('selected', selectedTools.includes(id));
+  const chk = document.getElementById(`sos-toolchk-${id}`);
+  if (chk) chk.textContent = selectedTools.includes(id) ? '✓' : '';
+}
+
+async function _saveSosTools() {
+  if (selectedTools.length > 0) {
+    const today = todayKey();
+    await sb.from('daily_tasks').insert(
+      selectedTools.map(toolId => ({
+        user_id: currentUser.id,
+        tool_id: toolId,
+        date:    today,
+      }))
+    );
+    const { data: td } = await sb.from('daily_tasks')
+      .select('id, is_complete, tool_id, custom_name, tool:tool_id(name, duration_min, weight, tool_type)')
+      .eq('user_id', currentUser.id).eq('date', todayKey()).order('created_at');
+    dailyTasks = td || [];
+    renderHome();
+  }
+  closeSos();
 }

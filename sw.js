@@ -1,4 +1,4 @@
-const CACHE = 'nova-app-v88';
+const CACHE = 'nova-app-v89';
 
 // Install: activate immediately without waiting for old tabs to close
 self.addEventListener('install', () => self.skipWaiting());
