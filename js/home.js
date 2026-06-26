@@ -653,11 +653,12 @@ async function estimateMealCalories() {
       }),
     });
     const data = await resp.json();
+    // DEBUG: показываем полный ответ
+    res.style.whiteSpace = 'pre-wrap';
+    res.style.fontSize = '10px';
+    res.textContent = JSON.stringify(data, null, 2);
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
-    // DEBUG: показываем сырой ответ
-    res.style.whiteSpace = 'pre-wrap';
-    res.textContent = raw;
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
     // Формируем итоговую строку
