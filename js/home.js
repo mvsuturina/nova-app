@@ -693,7 +693,6 @@ function updateSnackCarousel(idx) {
 }
 
 function openSnackModal(idx) {
-  try {
   activeSnackIdx = idx;
   activeMealType = 'snack';
   const snack = idx !== null ? todaySnacks[idx] : null;
@@ -725,19 +724,21 @@ function openSnackModal(idx) {
   _mealNutrition = snack?.nutritionJson || null;
   _renderNutritionBreakdown();
 
-  // Фото
+  // Фото — тот же шаблон что renderMealModalPhotos
   const photoArr = snack?.photos || [];
   const el = document.getElementById('meal-modal-photos');
   el.innerHTML = `
-    <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
+    <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Фото</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
       ${photoArr.map((url, i) => `
         <div style="position:relative;flex-shrink:0;">
           <img src="${url}" onclick="openMealLightbox('${url}')"
-               style="width:76px;height:76px;border-radius:10px;object-fit:cover;cursor:pointer;">
+               style="width:76px;height:76px;object-fit:cover;border-radius:10px;display:block;cursor:pointer;">
           <button onclick="deleteSnackPhoto(${i})"
-                  style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);border:none;
-                         color:white;border-radius:50%;width:20px;height:20px;font-size:11px;
-                         cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
+                  style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;
+                         background:rgba(0,0,0,0.85);border:none;border-radius:50%;color:white;
+                         font-size:12px;line-height:1;cursor:pointer;display:flex;
+                         align-items:center;justify-content:center;padding:0;">×</button>
         </div>`).join('')}
       ${photoArr.length < 3 ? `
         <label style="width:76px;height:76px;background:var(--bg3);border-radius:10px;
@@ -752,7 +753,6 @@ function openSnackModal(idx) {
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
-  } catch(e) { console.error('openSnackModal error:', e); alert('Ошибка: ' + e.message); }
 }
 
 async function saveSnackModal() {
