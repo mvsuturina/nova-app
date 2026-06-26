@@ -40,27 +40,37 @@ function _parseNutritionResponse(text) {
   for (const line of clean.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed.includes('ккал')) continue;
-    if (/итого|всего|total|^[~≈]/i.test(trimmed)) continue;
+    if (/итого|всего|total/i.test(trimmed)) continue;
 
-    // Делим на "описание+граммы" и "КБЖУ" по двоеточию
-    const ci = trimmed.indexOf(':');
-    if (ci === -1) continue;
-    const left  = trimmed.slice(0, ci);
-    const right = trimmed.slice(ci + 1);
+    // Ищем "Xг:" или "Xмл:" — разделитель между названием и КБЖУ
+    const gcM = trimmed.match(/(\d+)\s*(г|мл)\s*:/);
+    if (!gcM) continue;
+    const splitAt = trimmed.indexOf(gcM[0]);
+    const left  = trimmed.slice(0, splitAt + gcM[1].length + gcM[2].length);
+    const right = trimmed.slice(splitAt + gcM[0].length);
 
-    const wM    = left.match(/(\d+)\s*г\s*$/);
-    if (!wM) continue;
-    const grams = +wM[1];
-    const name  = left.slice(0, left.lastIndexOf(wM[0]))
-      .replace(/^[-•*\s]+/, '').replace(/\d+\s*шт\.?/g, '').replace(/[~≈\\]/g, '').trim() || '—';
+    const grams = +gcM[1];
+    const unit  = gcM[2];
+    const name  = left
+      .replace(/^[-•*\s]+/, '')
+      .replace(/\d+\s*(г|мл)$/, '')
+      .replace(/\d+\s*шт\.?/g, '')
+      .replace(/[~≈\\]/g, '')
+      .trim() || '—';
 
     const kM = right.match(/(\d+)\s*ккал/);
     const pM = right.match(/Б\s*(\d+)/);
     const fM = right.match(/Ж\s*(\d+)/);
     const cM = right.match(/У\s*(\d+)/);
-    if (!kM || !pM || !fM || !cM) continue;
+    if (!kM) continue;
 
-    items.push({ name, grams, kcal: +kM[1], p: +pM[1], f: +fM[1], c: +cM[1] });
+    items.push({
+      name, grams, unit,
+      kcal: +kM[1],
+      p: pM ? +pM[1] : 0,
+      f: fM ? +fM[1] : 0,
+      c: cM ? +cM[1] : 0,
+    });
   }
 
   // Ищем итоговую строку
@@ -97,22 +107,20 @@ function _renderNutritionBreakdown() {
   if (!_mealNutrition) { el.innerHTML = ''; return; }
   const { items, total } = _mealNutrition;
   const rows = items.map((it, i) => `
-    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;
-                border-bottom:1px solid var(--border);font-size:12px;">
-      <div style="flex:1;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.name}</div>
-      <div style="flex-shrink:0;">
-        <span id="nitem-g-${i}" onclick="editNutritionGrams(${i})"
-              style="color:var(--purple-light);cursor:pointer;padding:2px 6px;
-                     border:1px solid rgba(147,112,219,0.25);border-radius:6px;font-size:11px;">${it.grams}г</span>
-      </div>
-      <div style="color:var(--text-faint);font-size:11px;flex-shrink:0;min-width:56px;text-align:right;">${it.kcal} ккал</div>
-      <div style="color:var(--text-faint);font-size:10px;flex-shrink:0;">Б${it.p} Ж${it.f} У${it.c}</div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;font-size:12px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.name}</div>
+      <span id="nitem-g-${i}" onclick="editNutritionGrams(${i})"
+            style="color:var(--purple-light);cursor:pointer;font-size:11px;flex-shrink:0;
+                   padding:1px 7px;border:1px solid rgba(147,112,219,0.3);border-radius:5px;">
+        ${it.grams}${it.unit || 'г'}</span>
+      <div style="font-size:11px;color:var(--text);flex-shrink:0;min-width:52px;text-align:right;">${it.kcal} ккал</div>
+      <div style="font-size:10px;color:var(--text-faint);flex-shrink:0;">Б${it.p} Ж${it.f} У${it.c}</div>
     </div>`).join('');
   el.innerHTML = `
     <div style="margin-top:10px;background:var(--bg3);border-radius:10px;padding:8px 12px;">
       <div style="font-size:9px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">СОСТАВ · тап на граммы чтобы поправить</div>
       ${rows}
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;margin-top:2px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:7px;margin-top:4px;">
         <div style="font-size:11px;color:var(--text-faint);">Итого</div>
         <div style="font-size:12px;color:var(--purple-light);">~${total.kcal} ккал · Б${total.p}г Ж${total.f}г У${total.c}г</div>
       </div>
