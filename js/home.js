@@ -155,6 +155,8 @@ function editNutritionGrams(idx) {
     if (ta) {
       ta.value = ta.value.replace(/\n~\d+[^\n]+$/, '') + '\n' + totalLine;
       mealModalData.description = ta.value;
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
     }
     document.getElementById('meal-kcal-result').textContent = totalLine;
   };
@@ -993,11 +995,9 @@ async function estimateMealCalories() {
   const photos = activeMealType === 'snack'
     ? (todaySnacks[activeSnackIdx]?.photos || [])
     : (activeMealType ? (todayMealPhotos[activeMealType] || []) : []);
-  console.log('[kcal] activeMealType:', activeMealType, 'activeSnackIdx:', activeSnackIdx, 'photos:', photos, 'desc:', desc);
   if (!desc && !photos.length) { res.textContent = 'Добавь описание или фото'; return; }
 
   const apiKey = profile.groq_api_key || localStorage.getItem('nova_api_key');
-  console.log('[kcal] apiKey present:', !!apiKey);
   if (!apiKey) { res.textContent = 'Нужен API ключ Groq в настройках'; return; }
 
   btn.disabled = true; btn.textContent = '...'; res.textContent = '';
@@ -1029,7 +1029,6 @@ async function estimateMealCalories() {
       ];
     }
 
-    console.log('[kcal] sending fetch, photos:', photos.length, 'desc:', desc.slice(0,40));
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -1043,9 +1042,6 @@ async function estimateMealCalories() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message);
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
-    // DEBUG
-    const dbg = document.getElementById('meal-nutrition-breakdown');
-    if (dbg) { dbg.innerHTML = `<pre style="font-size:10px;color:var(--text-faint);white-space:pre-wrap;word-break:break-all;background:var(--bg3);border-radius:8px;padding:8px;margin-top:8px;">${raw}</pre>`; }
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
     const t = _mealNutrition?.total;
@@ -1055,6 +1051,8 @@ async function estimateMealCalories() {
     const ta = document.getElementById('meal-modal-desc');
     ta.value = (desc || '') + (desc ? '\n' : '') + totalLine;
     mealModalData.description = ta.value;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
   } catch(e) {
     res.textContent = 'Ошибка: ' + e.message;
   }
