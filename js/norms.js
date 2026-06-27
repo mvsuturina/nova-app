@@ -12,7 +12,7 @@ const MEAL_NORMS_SHARE = {
 };
 
 // После этого часа приём считается «должен был состояться»
-const MEAL_PAST_HOUR = { breakfast: 9, lunch: 14, dinner: 21 };
+const MEAL_PAST_HOUR = { breakfast: 8, lunch: 14, dinner: 18 };
 
 // Парсит строку вида «~450 ккал · Б 25г · Ж 15г · У 60г»
 function parseMealKcal(desc) {

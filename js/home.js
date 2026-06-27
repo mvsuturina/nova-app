@@ -24,6 +24,7 @@ function _parseMealKcal(desc) { return parseMealKcal(desc); }
 function _updateKcalDisplay() {
   const el = document.getElementById('score-kcal');
   if (!el) return;
+
   const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
   const _add = obj => {
     if (!obj) return;
@@ -34,14 +35,32 @@ function _updateKcalDisplay() {
 
   if (!totals.n) { el.innerHTML = ''; return; }
 
-  const h   = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
-  const exp = getExpectedByNow(h);
+  const h         = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
+  const exp    = getExpectedByNow(h);
+
+  // До первого окна ориентир — треть нормы (завтрак)
+  const target = exp.kcal > 0 ? exp : {
+    kcal: Math.round(DAILY_NORMS.kcal / 3),
+    p:    Math.round(DAILY_NORMS.p    / 3),
+    f:    Math.round(DAILY_NORMS.f    / 3),
+    c:    Math.round(DAILY_NORMS.c    / 3),
+  };
+
+  const _row = (actual, tgt, label, unit) => {
+    const color = macroColor(actual, tgt);
+    const pct   = Math.min(100, Math.round(actual / tgt * 100));
+    return `<div class="kbju-row">
+      <span class="kbju-label">${label}</span>
+      <div class="kbju-track"><div class="kbju-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="kbju-vals" style="color:${color}">${actual}<span class="kbju-target"> / ${tgt}${unit}</span></span>
+    </div>`;
+  };
+
   el.innerHTML =
-    `<span style="color:${macroColor(totals.kcal, exp.kcal)}">~${totals.kcal} ккал</span>` +
-    `<span style="color:var(--text-faint)"> · </span>` +
-    `<span style="color:${macroColor(totals.p, exp.p)}">Б ${totals.p}г</span> ` +
-    `<span style="color:${macroColor(totals.f, exp.f)}">Ж ${totals.f}г</span> ` +
-    `<span style="color:${macroColor(totals.c, exp.c)}">У ${totals.c}г</span>`;
+    _row(totals.kcal, target.kcal, 'Ккал', '') +
+    _row(totals.p,    target.p,    'Б',    'г') +
+    _row(totals.f,    target.f,    'Ж',    'г') +
+    _row(totals.c,    target.c,    'У',    'г');
 }
 
 function _normalizeNutritionText(text) {
@@ -376,9 +395,9 @@ async function toggleMiniGoal(id) {
 }
 
 const MEAL_WINDOWS = {
-  breakfast: { label: 'Завтрак', window: '6 – 8' },
-  lunch:     { label: 'Обед',    window: '12 – 14' },
-  dinner:    { label: 'Ужин',    window: '16 – 18' },
+  breakfast: { label: 'Завтрак', window: '6–8' },
+  lunch:     { label: 'Обед',    window: '12–14' },
+  dinner:    { label: 'Ужин',    window: '16–18' },
   snack:     { label: 'Перекус', window: '' },
 };
 
