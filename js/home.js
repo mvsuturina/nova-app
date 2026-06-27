@@ -18,10 +18,30 @@ function renderHome() {
   renderDailyTasks();
 }
 
-function _parseMealKcal(desc) {
-  if (!desc) return null;
-  const m = desc.match(/~(\d+)\s*ккал\s*·\s*Б\s*(\d+)г\s*·\s*Ж\s*(\d+)г\s*·\s*У\s*(\d+)г/);
-  return m ? { kcal: +m[1], p: +m[2], f: +m[3], c: +m[4] } : null;
+// Делегирует в norms.js (единственный источник правды для парсинга)
+function _parseMealKcal(desc) { return parseMealKcal(desc); }
+
+function _updateKcalDisplay() {
+  const el = document.getElementById('score-kcal');
+  if (!el) return;
+  const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
+  const _add = obj => {
+    if (!obj) return;
+    totals.kcal += obj.kcal; totals.p += obj.p; totals.f += obj.f; totals.c += obj.c; totals.n++;
+  };
+  ['breakfast', 'lunch', 'dinner'].forEach(t => _add(_parseMealKcal(todayMeals[t]?.description)));
+  todaySnacks.forEach(s => _add(s.nutritionJson?.total || _parseMealKcal(s.description)));
+
+  if (!totals.n) { el.innerHTML = ''; return; }
+
+  const h   = parseInt(new Date().toLocaleString('en-CA', { timeZone: userTimezone, hour: 'numeric', hour12: false }));
+  const exp = getExpectedByNow(h);
+  el.innerHTML =
+    `<span style="color:${macroColor(totals.kcal, exp.kcal)}">~${totals.kcal} ккал</span>` +
+    `<span style="color:var(--text-faint)"> · </span>` +
+    `<span style="color:${macroColor(totals.p, exp.p)}">Б ${totals.p}г</span> ` +
+    `<span style="color:${macroColor(totals.f, exp.f)}">Ж ${totals.f}г</span> ` +
+    `<span style="color:${macroColor(totals.c, exp.c)}">У ${totals.c}г</span>`;
 }
 
 function _normalizeNutritionText(text) {
@@ -178,16 +198,7 @@ function renderScore() {
     cardEl.className    = 'score-card';
     zoneEl.textContent  = '';
     zoneEl.className    = 'score-zone';
-    const kcalElNull = document.getElementById('score-kcal');
-    if (kcalElNull) {
-      const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
-      const _add = obj => { if (!obj) return; totals.kcal += obj.kcal; totals.p += obj.p; totals.f += obj.f; totals.c += obj.c; totals.n++; };
-      ['breakfast', 'lunch', 'dinner'].forEach(t => _add(_parseMealKcal(todayMeals[t]?.description)));
-      todaySnacks.forEach(s => _add(s.nutritionJson?.total || _parseMealKcal(s.description)));
-      kcalElNull.textContent = totals.n
-        ? `~${totals.kcal} ккал  ·  Б ${totals.p}г  Ж ${totals.f}г  У ${totals.c}г`
-        : '';
-    }
+    _updateKcalDisplay();
     return;
   }
 
@@ -204,16 +215,7 @@ function renderScore() {
   zoneEl.className    = `score-zone ${zone}`;
   document.getElementById('score-desc').textContent = ZONE_DESCS[zone];
 
-  const kcalEl = document.getElementById('score-kcal');
-  if (kcalEl) {
-    const totals = { kcal: 0, p: 0, f: 0, c: 0, n: 0 };
-    const _add = obj => { if (!obj) return; totals.kcal += obj.kcal; totals.p += obj.p; totals.f += obj.f; totals.c += obj.c; totals.n++; };
-    ['breakfast', 'lunch', 'dinner'].forEach(t => _add(_parseMealKcal(todayMeals[t]?.description)));
-    todaySnacks.forEach(s => _add(s.nutritionJson?.total || _parseMealKcal(s.description)));
-    kcalEl.textContent = totals.n
-      ? `~${totals.kcal} ккал  ·  Б ${totals.p}г  Ж ${totals.f}г  У ${totals.c}г`
-      : '';
-  }
+  _updateKcalDisplay();
 
   const btn = document.getElementById('breakdown-btn');
   if (btn) btn.style.display = 'block';
