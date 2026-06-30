@@ -760,8 +760,6 @@ function openSnackModal(idx) {
 
   const _descTa = document.getElementById('meal-modal-desc');
   _descTa.value = snack?.description || '';
-  _descTa.style.height = '1px';
-  _descTa.style.height = _descTa.scrollHeight + 'px';
 
   const kcalRes = document.getElementById('meal-kcal-result');
   if (kcalRes) kcalRes.textContent = '';
@@ -776,6 +774,10 @@ function openSnackModal(idx) {
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
+
+  // Считаем высоту после display=flex — при display:none scrollHeight = 0
+  _descTa.style.height = '1px';
+  _descTa.style.height = _descTa.scrollHeight + 'px';
 }
 
 async function saveSnackModal() {
@@ -933,8 +935,6 @@ function openMealModal(type) {
 
   const _descTa = document.getElementById('meal-modal-desc');
   _descTa.value = meal.description || '';
-  _descTa.style.height = '1px';
-  _descTa.style.height = _descTa.scrollHeight + 'px';
   document.getElementById('meal-modal-delete').style.display = meal.done ? 'block' : 'none';
   const kcalRes = document.getElementById('meal-kcal-result');
   if (kcalRes) kcalRes.textContent = '';
@@ -943,6 +943,10 @@ function openMealModal(type) {
   renderMealModalPhotos(type);
 
   document.getElementById('meal-modal').style.display = 'flex';
+
+  // Считаем высоту после display=flex — при display:none scrollHeight = 0
+  _descTa.style.height = '1px';
+  _descTa.style.height = _descTa.scrollHeight + 'px';
 }
 
 function _renderPhotoGrid(photos, deleteHandler, addHandler) {
