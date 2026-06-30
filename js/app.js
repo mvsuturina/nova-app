@@ -38,15 +38,10 @@ async function initApp() {
   if (session) { currentUser = session.user; await loadUserData(); }
   else setScreen('auth');
 
-  // При возврате в приложение (из фона/другой вкладки) проверяем сменилась ли дата
-  let _loadedDate = todayKey();
+  // При возврате из фона — всегда обновляем данные
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || !currentUser) return;
-    const nowDate = todayKey();
-    if (nowDate !== _loadedDate) {
-      _loadedDate = nowDate;
-      loadUserData();
-    }
+    loadUserData();
   });
 }
 
