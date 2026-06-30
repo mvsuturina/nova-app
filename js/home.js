@@ -11,6 +11,7 @@ function renderHome() {
   document.getElementById('greeting-text').textContent =
     greet + (profile.name ? `, ${profile.name}` : '');
 
+  renderChallenge();
   renderScore();
   renderTrackers();
   renderMiniGoals();
@@ -631,6 +632,7 @@ async function logActivity(type) {
   } else {
     await sb.from('activity_log').insert({ user_id: currentUser.id, date: today, activity_type: type });
     todayActivity[type] = true;
+    autoCheckChallenge(type);
   }
   renderTrackers();
   await recalculateScore('activity_' + type);

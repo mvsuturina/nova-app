@@ -28,6 +28,7 @@ async function initApp() {
       todayEventDeltas = [];
       survey2Ans       = {};
       surveyRef        = null;
+      activeChallenge  = null;
       userTimezone     = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       setScreen('auth');
     }
@@ -259,6 +260,8 @@ async function loadUserData() {
       .order('created_at', { ascending: true })
       .limit(30);
     if (md) messages = md;
+
+    await loadChallenge();
 
     if (!profile.name) setScreen('setup');
     else { showHome(); initPush(); }
