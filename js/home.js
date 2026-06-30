@@ -457,28 +457,23 @@ function renderTrackers() {
       const { label, window } = MEAL_WINDOWS[type];
       const meal   = todayMeals[type];
       const photos = todayMealPhotos[type] || [];
-      const idx    = mealCarouselIdx[type] || 0;
-      const photo  = photos[idx] || null;
+      const photo  = photos[0] || null;
       const qualityTag = meal.quality === 'plan'
         ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
         : meal.quality === 'slip'
         ? `<span style="font-size:9px;color:var(--red);letter-spacing:0.5px;">срыв</span>`
         : `<span style="font-size:9px;color:rgba(255,255,255,0.35);">${window}</span>`;
-      const dots = photos.length > 1
-        ? `<div class="meal-dots">${photos.map((_, i) =>
-            `<span class="meal-dot${i === idx ? ' active' : ''}"></span>`
-          ).join('')}</div>`
+      const multiPhoto = photos.length > 1
+        ? `<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border-radius:6px;padding:2px 6px;font-size:9px;color:rgba(255,255,255,0.8);z-index:2;">1/${photos.length}</div>`
         : '';
       return `
         <div class="meal-card${meal.done ? ' done' : ''}"
              data-meal="${type}"
              style="${photo ? `background-image:url('${photo}')` : ''}"
-             ondblclick="openMealModal('${type}')"
-             ontouchstart="mealTouchStart(event,'${type}')"
-             ontouchend="mealTouchEnd(event,'${type}')">
+             onclick="openMealModal('${type}')">
           <div class="meal-card-overlay"></div>
           ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-          ${dots}
+          ${multiPhoto}
           <div class="meal-card-label">
             <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
             <div class="meal-slot-name">${label} ${qualityTag}</div>
@@ -488,11 +483,9 @@ function renderTrackers() {
     } else {
       const i     = item.idx;
       const snack = todaySnacks[i];
-      const photo = snack.photos[snack.carouselIdx] || null;
-      const dots  = snack.photos.length > 1
-        ? `<div class="meal-dots">${snack.photos.map((_, pi) =>
-            `<span class="meal-dot${pi === snack.carouselIdx ? ' active' : ''}"></span>`
-          ).join('')}</div>`
+      const photo = snack.photos[0] || null;
+      const multiPhoto = snack.photos.length > 1
+        ? `<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border-radius:6px;padding:2px 6px;font-size:9px;color:rgba(255,255,255,0.8);z-index:2;">1/${snack.photos.length}</div>`
         : '';
       const qualityTag = snack.quality === 'plan'
         ? `<span style="font-size:9px;color:var(--green);letter-spacing:0.5px;">по плану</span>`
@@ -502,12 +495,10 @@ function renderTrackers() {
       return `
         <div class="meal-card done" data-snack="${i}"
              style="${photo ? `background-image:url('${photo}')` : ''}"
-             ondblclick="openSnackModal(${i})"
-             ontouchstart="snackTouchStart(event,${i})"
-             ontouchend="snackTouchEnd(event,${i})">
+             onclick="openSnackModal(${i})">
           <div class="meal-card-overlay"></div>
           ${!photo ? '<div class="meal-cam-placeholder">📷</div>' : ''}
-          ${dots}
+          ${multiPhoto}
           <div class="meal-card-label">
             <div class="meal-slot-icon">✓</div>
             <div class="meal-slot-name">Перекус ${qualityTag}</div>
@@ -645,96 +636,7 @@ async function logActivity(type) {
   await recalculateScore('activity_' + type);
 }
 
-// ── КАРУСЕЛЬ ФОТ В КАРТОЧКЕ ───────────────────────────────
-
-let _mealTouchX      = null;
-let _mealTouchY      = null;
-let _mealLastTapType = null;
-let _mealLastTapTime = 0;
-
-function mealTouchStart(e, type) {
-  _mealTouchX = e.touches[0].clientX;
-  _mealTouchY = e.touches[0].clientY;
-}
-
-function mealTouchEnd(e, type) {
-  if (_mealTouchX === null) return;
-  const dx = e.changedTouches[0].clientX - _mealTouchX;
-  const dy = e.changedTouches[0].clientY - _mealTouchY;
-  _mealTouchX = null;
-  _mealTouchY = null;
-
-  // Горизонтальный свайп → листаем фото
-  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) {
-    const photos = todayMealPhotos[type] || [];
-    if (photos.length > 1) {
-      e.preventDefault();
-      const cur = mealCarouselIdx[type] || 0;
-      mealCarouselIdx[type] = dx < 0
-        ? Math.min(cur + 1, photos.length - 1)
-        : Math.max(cur - 1, 0);
-      updateMealCarousel(type);
-    }
-    return;
-  }
-
-  // Тап (без движения) → детектируем двойной тап
-  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-    const now = Date.now();
-    if (_mealLastTapType === type && now - _mealLastTapTime < 350) {
-      _mealLastTapType = null;
-      _mealLastTapTime = 0;
-      openMealModal(type);
-    } else {
-      _mealLastTapType = type;
-      _mealLastTapTime = now;
-    }
-  }
-}
-
-// ── СНЕК — карусель и модал ───────────────────────────────
-
-let _snackTouchX = 0, _snackTouchY = 0, _snackLastTapIdx = null, _snackLastTapTime = 0;
 let activeSnackIdx = null; // null = новый снек, число = индекс в todaySnacks
-
-function snackTouchStart(e, idx) {
-  _snackTouchX = e.touches[0].clientX;
-  _snackTouchY = e.touches[0].clientY;
-}
-
-function snackTouchEnd(e, idx) {
-  const dx = e.changedTouches[0].clientX - _snackTouchX;
-  const dy = e.changedTouches[0].clientY - _snackTouchY;
-  if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
-    const snack = todaySnacks[idx];
-    if (!snack) return;
-    const len = snack.photos.length;
-    if (len < 2) return;
-    snack.carouselIdx = dx < 0
-      ? Math.min(snack.carouselIdx + 1, len - 1)
-      : Math.max(snack.carouselIdx - 1, 0);
-    updateSnackCarousel(idx);
-    return;
-  }
-  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-    const now = Date.now();
-    if (_snackLastTapIdx === idx && now - _snackLastTapTime < 350) {
-      _snackLastTapIdx = null; _snackLastTapTime = 0;
-      openSnackModal(idx);
-    } else {
-      _snackLastTapIdx = idx; _snackLastTapTime = now;
-    }
-  }
-}
-
-function updateSnackCarousel(idx) {
-  const snack = todaySnacks[idx];
-  if (!snack) return;
-  const card = document.querySelector(`.meal-card[data-snack="${idx}"]`);
-  if (!card) return;
-  card.style.backgroundImage = snack.photos[snack.carouselIdx] ? `url('${snack.photos[snack.carouselIdx]}')` : '';
-  card.querySelectorAll('.meal-dot').forEach((d, i) => d.classList.toggle('active', i === snack.carouselIdx));
-}
 
 function openSnackModal(idx) {
   activeSnackIdx = idx;
