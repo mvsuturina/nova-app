@@ -310,9 +310,16 @@
       <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Автоотметка (если цель — активность)</div>
       <select id="ch-linked" class="field-input" style="margin-bottom:24px;">
         <option value="">Нет (ручная отметка)</option>
-        <option value="warmup">Зарядка</option>
-        <option value="workout">Тренировка</option>
-        <option value="walk">Прогулка</option>
+        <optgroup label="Активность">
+          <option value="warmup">Зарядка</option>
+          <option value="workout">Тренировка</option>
+          <option value="walk">Прогулка</option>
+        </optgroup>
+        <optgroup label="Авто по данным">
+          <option value="water_8">Вода — 8 стаканов</option>
+          <option value="no_slip">Еда без срывов</option>
+          <option value="kcal_norm">Калории в норме (80–115%)</option>
+        </optgroup>
       </select>
 
       <button onclick="submitCreateChallenge()"

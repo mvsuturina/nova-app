@@ -1,9 +1,13 @@
 // ── Челлендж / стрик ──────────────────────────────────────────────────────────
 // Изолированный модуль. Не трогает существующий код.
-// Точки интеграции:
-//   loadChallenge()         — вызывается из loadUserData() в app.js
-//   renderChallenge()       — вызывается из renderHome() в home.js
-//   autoCheckChallenge(t)   — вызывается из logActivity() в home.js
+//
+// Точки интеграции (fire-and-forget):
+//   loadChallenge()                 — из loadUserData() в app.js
+//   renderChallenge()               — из renderHome() в home.js
+//   autoCheckChallenge(event)       — из home.js в нужных местах:
+//     'warmup'|'workout'|'walk'     — из logActivity()
+//     'water_added'|'water_removed' — из addWater() / removeWater()
+//     'meal_saved'|'meal_deleted'   — из saveMealModal/saveSnackModal/delete...
 
 let activeChallenge = null;
 
@@ -18,6 +22,8 @@ async function loadChallenge() {
     .maybeSingle();
   activeChallenge = data || null;
 }
+
+// ── Рендер виджета ─────────────────────────────────────────
 
 function renderChallenge() {
   const el = document.getElementById('challenge-widget');
@@ -83,7 +89,7 @@ function renderChallenge() {
                   font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:0.5px;">
         ${activeChallenge.title}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:3px;">${_chStars(doneDates, total, today)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;">${_chDots(doneDates, total, today)}</div>
       ${streakBadge}${linkedHint}${nudgeHtml}${completeBanner}
     </div>
     ${needManualBtn ? `
@@ -97,7 +103,9 @@ function renderChallenge() {
     </button>` : ''}`;
 }
 
-function _chStars(doneDates, total, today) {
+// ── Вспомогательные ────────────────────────────────────────
+
+function _chDots(doneDates, total, today) {
   const start = activeChallenge.start_date;
   return Array.from({ length: total }, (_, i) => {
     const d       = _chAddDays(start, i);
@@ -115,10 +123,9 @@ function _chStars(doneDates, total, today) {
 }
 
 function _chStreak(doneDates, today) {
-  let streak = 0;
-  let d = today;
-  while (doneDates.includes(d)) { streak++; d = _chAddDays(d, -1); }
-  return streak;
+  let n = 0, d = today;
+  while (doneDates.includes(d)) { n++; d = _chAddDays(d, -1); }
+  return n;
 }
 
 function _chAddDays(dateStr, n) {
@@ -128,53 +135,114 @@ function _chAddDays(dateStr, n) {
 }
 
 function _chLinkedLabel(key) {
-  return { warmup: 'зарядка', workout: 'тренировка', walk: 'прогулка' }[key] || key;
+  return {
+    warmup:    'зарядка',
+    workout:   'тренировка',
+    walk:      'прогулка',
+    water_8:   'вода 8 стаканов',
+    no_slip:   'еда без срывов',
+    kcal_norm: 'калории в норме',
+  }[key] || key;
 }
 
-// ── Авто-отметка (хук из logActivity) ─────────────────────
+// ── Условия выполнения ─────────────────────────────────────
 
-async function autoCheckChallenge(activityType) {
-  if (!activeChallenge || activeChallenge.linked_to !== activityType) return;
-  const today = todayKey();
-  if ((activeChallenge.done_dates || []).includes(today)) return;
-  await _chMarkDone(today);
+function _chCheckWater8()   { return todayWaterCount >= 8; }
+
+function _chCheckNoSlip() {
+  const done = ['breakfast','lunch','dinner'].some(t => todayMeals[t].done);
+  if (!done) return false;
+  return ['breakfast','lunch','dinner'].every(t =>
+    !todayMeals[t].done || todayMeals[t].quality !== 'slip'
+  );
+}
+
+function _chCheckKcalNorm() {
+  let kcal = 0, n = 0;
+  ['breakfast','lunch','dinner'].forEach(t => {
+    const nu = todayMeals[t].nutritionJson?.total || parseMealKcal(todayMeals[t].description);
+    if (nu) { kcal += nu.kcal; n++; }
+  });
+  todaySnacks.forEach(s => {
+    const nu = s.nutritionJson?.total || parseMealKcal(s.description);
+    if (nu) { kcal += nu.kcal; n++; }
+  });
+  if (n === 0) return false;
+  const pct = kcal / DAILY_NORMS.kcal;
+  return pct >= 0.8 && pct <= 1.15;
+}
+
+// ── Основной хук ───────────────────────────────────────────
+// Вызывается из home.js после изменения состояния.
+// event: 'warmup'|'workout'|'walk'|'water_added'|'water_removed'|'meal_saved'|'meal_deleted'
+
+async function autoCheckChallenge(event) {
+  if (!activeChallenge || activeChallenge.status !== 'active') return;
+  const today  = todayKey();
+  const linked = activeChallenge.linked_to;
+
+  if (['warmup','workout','walk'].includes(linked) && linked === event) {
+    // Активность: только вперёд — отметить если ещё нет
+    if (!(activeChallenge.done_dates || []).includes(today))
+      await _chSetDay(today, true);
+    return;
+  }
+
+  if (linked === 'water_8' && (event === 'water_added' || event === 'water_removed')) {
+    await _chSetDay(today, _chCheckWater8());
+    return;
+  }
+
+  if (linked === 'no_slip' && (event === 'meal_saved' || event === 'meal_deleted')) {
+    await _chSetDay(today, _chCheckNoSlip());
+    return;
+  }
+
+  if (linked === 'kcal_norm' && (event === 'meal_saved' || event === 'meal_deleted')) {
+    await _chSetDay(today, _chCheckKcalNorm());
+    return;
+  }
+}
+
+// ── Обновление done_dates ──────────────────────────────────
+// Умно добавляет ИЛИ убирает дату — для авто-условий.
+
+async function _chSetDay(date, shouldBeDone) {
+  const doneDates   = [...(activeChallenge.done_dates || [])];
+  const alreadyDone = doneDates.includes(date);
+  if (shouldBeDone === alreadyDone) return;
+
+  const newDates   = shouldBeDone
+    ? [...doneDates, date]
+    : doneDates.filter(d => d !== date);
+  const isComplete = shouldBeDone && newDates.length >= activeChallenge.duration_days;
+
+  const update = { done_dates: newDates };
+  if (isComplete) update.status = 'done';
+
+  const { error } = await sb.from('challenges').update(update).eq('id', activeChallenge.id);
+  if (!error) {
+    activeChallenge.done_dates = newDates;
+    if (isComplete) activeChallenge.status = 'done';
+    renderChallenge();
+    if (isComplete)
+      setTimeout(() => alert(`Челлендж "${activeChallenge.title}" завершён!`), 300);
+  }
 }
 
 // ── Ручная отметка ─────────────────────────────────────────
 
 async function markChallengeToday() {
   if (!activeChallenge) return;
-  const today = todayKey();
-  if ((activeChallenge.done_dates || []).includes(today)) return;
-  await _chMarkDone(today);
-}
-
-async function _chMarkDone(date) {
-  const doneDates  = [...(activeChallenge.done_dates || []), date];
-  const isComplete = doneDates.length >= activeChallenge.duration_days;
-  const newStatus  = isComplete ? 'done' : 'active';
-
-  const { error } = await sb.from('challenges')
-    .update({ done_dates: doneDates, status: newStatus })
-    .eq('id', activeChallenge.id);
-
-  if (!error) {
-    activeChallenge.done_dates = doneDates;
-    if (isComplete) activeChallenge.status = newStatus;
-    renderChallenge();
-    if (isComplete) {
-      setTimeout(() => alert(`Челлендж "${activeChallenge.title}" завершён! Ты молодец!`), 300);
-    }
-  }
+  await _chSetDay(todayKey(), true);
 }
 
 // ── Создание ───────────────────────────────────────────────
 
 function openChallengeCreateModal() {
-  const el = document.getElementById('challenge-create-modal');
-  el.style.display = 'flex';
-  document.getElementById('ch-title').value = '';
-  document.getElementById('ch-days').value  = '21';
+  document.getElementById('challenge-create-modal').style.display = 'flex';
+  document.getElementById('ch-title').value  = '';
+  document.getElementById('ch-days').value   = '21';
   document.getElementById('ch-linked').value = '';
 }
 
@@ -220,6 +288,7 @@ function openChallengeManageModal() {
                 color:var(--text);margin-bottom:4px;">${activeChallenge.title}</div>
     <div style="font-size:12px;color:var(--text-faint);margin-bottom:20px;">
       Начат: ${activeChallenge.start_date} · ${doneDates.length}/${activeChallenge.duration_days} дней
+      ${activeChallenge.linked_to ? ` · ${_chLinkedLabel(activeChallenge.linked_to)}` : ''}
     </div>
     ${!todayDone && !activeChallenge.linked_to && !isComplete ? `
     <button onclick="markChallengeToday();closeChallengeManageModal()"

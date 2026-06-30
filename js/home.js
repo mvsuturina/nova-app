@@ -723,6 +723,7 @@ async function saveSnackModal() {
       createdAt: new Date().toISOString(),
     });
   }
+  autoCheckChallenge('meal_saved');
   closeMealModal();
   renderTrackers();
   renderScore();
@@ -740,6 +741,7 @@ async function deleteSnackFromModal() {
   }
   await sb.from('meal_log').delete().eq('id', snack.id);
   todaySnacks.splice(activeSnackIdx, 1);
+  autoCheckChallenge('meal_deleted');
   closeMealModal();
   renderTrackers();
   await recalculateScore('meal_snack');
@@ -1045,6 +1047,7 @@ async function saveMealModal() {
     hungerAfterHour: hungerAfterHour || null,
     nutritionJson:   _mealNutrition || null,
   };
+  autoCheckChallenge('meal_saved');
 
   renderTrackers();
   renderScore();
@@ -1070,6 +1073,7 @@ async function deleteMealFromModal() {
     .eq('user_id', currentUser.id).eq('date', today).eq('meal_type', type);
 
   todayMeals[type] = { done: false, quality: null, description: null, hungerBefore: null, hungerAfter: null, hungerAfterHour: null };
+  autoCheckChallenge('meal_deleted');
 
   closeMealModal();
   renderTrackers();
@@ -1158,6 +1162,7 @@ async function addWater() {
   const { error } = await sb.from('water_log').insert({ user_id: currentUser.id, date: todayKey() });
   if (error) { console.error('addWater:', error); return; }
   todayWaterCount++;
+  autoCheckChallenge('water_added');
   renderTrackers();
 }
 
@@ -1170,6 +1175,7 @@ async function removeWater() {
   const { error } = await sb.from('water_log').delete().eq('id', data.id);
   if (error) { console.error('removeWater:', error); return; }
   todayWaterCount--;
+  autoCheckChallenge('water_removed');
   renderTrackers();
 }
 
