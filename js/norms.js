@@ -21,6 +21,25 @@ function parseMealKcal(desc) {
   return m ? { kcal: +m[1], p: +m[2], f: +m[3], c: +m[4] } : null;
 }
 
+function scaleNutrition(nutrition, sourceGrams, targetGrams) {
+  const source = Number(sourceGrams);
+  const target = Number(targetGrams);
+  if (!nutrition?.items?.length || !nutrition.total || source <= 0 || target <= 0) return null;
+  const factor = target / source;
+  const scale = value => Math.max(0, Math.round(Number(value || 0) * factor));
+  return {
+    items: nutrition.items.map(item => ({
+      ...item,
+      grams: Math.max(1, scale(item.grams)),
+      kcal: scale(item.kcal), p: scale(item.p), f: scale(item.f), c: scale(item.c),
+    })),
+    total: {
+      kcal: scale(nutrition.total.kcal), p: scale(nutrition.total.p),
+      f: scale(nutrition.total.f), c: scale(nutrition.total.c),
+    },
+  };
+}
+
 // Возвращает ожидаемые накопленные КБЖУ к заданному часу.
 // hourNow = 8  → { kcal:0, p:0, f:0, c:0 }      (завтрак ещё не прошёл)
 // hourNow = 10 → 1/3 нормы
@@ -57,5 +76,5 @@ function macroColor(actual, expected) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { DAILY_NORMS, MEAL_NORMS_SHARE, MEAL_PAST_HOUR, parseMealKcal, getExpectedByNow, macroColor };
+  module.exports = { DAILY_NORMS, MEAL_NORMS_SHARE, MEAL_PAST_HOUR, parseMealKcal, scaleNutrition, getExpectedByNow, macroColor };
 }

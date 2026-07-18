@@ -356,6 +356,7 @@ my_param_log: [{ time: new Date().toISOString(), value: val }],                 
 
 ## Трекеры (виджет на главной)
 - `meal_log` — одна строка = один приём пищи; `meal_type IN ('breakfast','lunch','dinner')`, `in_window bool`
+- `saved_recipes` — личный справочник проверенных порций: уникальное для пользователя название, эталонный вес `portion_grams`, состав и КБЖУ в `nutrition_json`. При выборе рецепт масштабируется по граммам и копируется в `meal_log`
 - `water_log` — одна строка = один стакан; цель 8 в день
 - При логировании через виджет → `showSurvey2()` пропускает соответствующий вопрос через `externalAnsweredKeys`
 - Обед и ужин будут в будущих опросах; сейчас в Survey 2 только `meal_breakfast`
@@ -410,6 +411,7 @@ SELECT json_build_object(
   'answers',   (SELECT json_agg(row_to_json(t)) FROM (SELECT a.* FROM daily_survey_answers a JOIN daily_survey_sessions s ON s.id = a.session_id WHERE s.user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
   'snapshots', (SELECT json_agg(row_to_json(t)) FROM (SELECT sn.* FROM daily_score_snapshots sn JOIN daily_scores sc ON sc.id = sn.score_id WHERE sc.user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
   'meals',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM meal_log              WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
+  'recipes',   (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM saved_recipes          WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
   'water',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM water_log             WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
   'activity',  (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM activity_log          WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),
   'goals',     (SELECT json_agg(row_to_json(t)) FROM (SELECT * FROM mini_goals            WHERE user_id = 'd0f3ba43-2690-46d1-8d1e-2b8f4c0abec5') t),

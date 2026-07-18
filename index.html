@@ -417,6 +417,23 @@
         <button class="scale-btn" id="mhh-10" onclick="setMealHungerAfterHour(10)">10</button>
       </div>
 
+      <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Мои рецепты</div>
+      <div style="display:flex;gap:8px;margin-bottom:18px;align-items:center;">
+        <select id="meal-recipe-select" onchange="selectSavedRecipe(this.value)"
+                style="min-width:0;flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+                       padding:10px;color:var(--text);font-family:'Jost',sans-serif;font-size:12px;">
+          <option value="">Выбрать сохранённую еду…</option>
+        </select>
+        <input id="meal-recipe-grams" type="number" min="1" inputmode="decimal" placeholder="г"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();applySavedRecipe()}"
+               style="display:none;width:62px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+                      padding:10px 7px;color:var(--text);font-family:'Jost',sans-serif;font-size:12px;box-sizing:border-box;">
+        <button id="meal-recipe-apply" onclick="applySavedRecipe()"
+                style="display:none;background:var(--purple);border:none;border-radius:10px;padding:10px 11px;
+                       color:white;font-family:'Jost',sans-serif;font-size:11px;cursor:pointer;">Добавить</button>
+      </div>
+      <div id="meal-recipe-status" style="font-size:11px;color:var(--text-faint);margin-top:-10px;margin-bottom:12px;"></div>
+
       <div style="font-size:9px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;margin-bottom:10px;">Что съела (опционально)</div>
       <textarea id="meal-modal-desc" rows="1"
         style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
@@ -482,13 +499,13 @@
 
 </div>
 <script src="js/state.js"></script>
-<script src="js/norms.js"></script>
+<script src="js/norms.js?v=124"></script>
 <script src="js/daylog.js"></script>
 <script src="js/score.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/journal.js"></script>
 <script src="js/challenge.js"></script>
-<script src="js/home.js?v=123"></script>
+<script src="js/home.js?v=124"></script>
 <script src="js/survey.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/push.js"></script>

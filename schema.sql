@@ -30,6 +30,7 @@ DROP FUNCTION IF EXISTS public.ensure_daily_score(uuid,date) CASCADE;
 -- Дневные таблицы (порядок важен: дочерние раньше родительских)
 DROP TABLE IF EXISTS public.mini_goals             CASCADE;
 DROP TABLE IF EXISTS public.journal_entries        CASCADE;
+DROP TABLE IF EXISTS public.saved_recipes          CASCADE;
 DROP TABLE IF EXISTS public.meal_log                CASCADE;
 DROP TABLE IF EXISTS public.water_log               CASCADE;
 DROP TABLE IF EXISTS public.activity_log            CASCADE;
@@ -450,6 +451,24 @@ CREATE TABLE public.meal_log (
 CREATE INDEX idx_ml_user_date ON public.meal_log (user_id, date DESC);
 
 
+-- ─── ЛИЧНЫЙ СПРАВОЧНИК РЕЦЕПТОВ ──────────────────────────────────────────
+-- Эталонная порция с уже проверенными пользователем КБЖУ.
+-- При добавлении в meal_log nutrition_json копируется, поэтому история неизменна.
+CREATE TABLE public.saved_recipes (
+  id             bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id        uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  name           text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 120),
+  portion_grams  numeric(8,2) NOT NULL CHECK (portion_grams > 0),
+  nutrition_json jsonb NOT NULL CHECK (jsonb_typeof(nutrition_json) = 'object'),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_saved_recipes_user_name ON public.saved_recipes (user_id, name);
+CREATE UNIQUE INDEX uq_saved_recipes_user_normalized_name
+  ON public.saved_recipes (user_id, lower(btrim(name)));
+
+
 -- ─── ЛОГ АКТИВНОСТИ ────────────────────────────────────────────────────────
 -- Одна строка = одна сессия активности. Цель: 3 в день (зарядка, тренировка, прогулка).
 CREATE TABLE public.activity_log (
@@ -626,6 +645,9 @@ CREATE POLICY "own snapshots" ON public.daily_score_snapshots FOR ALL USING (
 -- Приёмы пищи и вода
 ALTER TABLE public.meal_log      ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own meals"        ON public.meal_log      FOR ALL USING (auth.uid() = user_id);
+ALTER TABLE public.saved_recipes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own saved recipes" ON public.saved_recipes
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 ALTER TABLE public.activity_log  ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own activity"     ON public.activity_log  FOR ALL USING (auth.uid() = user_id);
 ALTER TABLE public.water_log ENABLE ROW LEVEL SECURITY;

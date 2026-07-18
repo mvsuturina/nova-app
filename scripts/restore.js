@@ -55,6 +55,7 @@ table('daily_scores',           backup.scores);
 table('daily_score_snapshots',  backup.snapshots);
 table('daily_survey_answers',   backup.answers);
 table('meal_log',               backup.meals);
+table('saved_recipes',          backup.recipes);
 table('water_log',              backup.water);
 table('activity_log',           backup.activity);
 table('mini_goals',             backup.goals);
@@ -71,6 +72,7 @@ sql.push('-- Проверка количества восстановленны�
 sql.push(`SELECT 'daily_scores'          AS t, count(*) FROM public.daily_scores          WHERE user_id = '${backup.user_id}'`);
 sql.push(`UNION ALL SELECT 'sessions',        count(*) FROM public.daily_survey_sessions  WHERE user_id = '${backup.user_id}'`);
 sql.push(`UNION ALL SELECT 'meals',           count(*) FROM public.meal_log               WHERE user_id = '${backup.user_id}'`);
+sql.push(`UNION ALL SELECT 'recipes',         count(*) FROM public.saved_recipes          WHERE user_id = '${backup.user_id}'`);
 sql.push(`UNION ALL SELECT 'goals',           count(*) FROM public.mini_goals             WHERE user_id = '${backup.user_id}'`);
 sql.push(`UNION ALL SELECT 'journals',        count(*) FROM public.journal_entries        WHERE user_id = '${backup.user_id}'`);
 sql.push('ORDER BY t;');

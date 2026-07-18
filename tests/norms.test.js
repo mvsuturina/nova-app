@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { DAILY_NORMS, parseMealKcal, getExpectedByNow, macroColor } = require('../js/norms.js');
+const { DAILY_NORMS, parseMealKcal, scaleNutrition, getExpectedByNow, macroColor } = require('../js/norms.js');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -45,6 +45,32 @@ test('возвращает null если паттерна нет', () => {
 
 test('возвращает null для частично совпадающей строки', () => {
   assert.strictEqual(parseMealKcal('~450 ккал без БЖУ'), null);
+});
+
+// ── scaleNutrition ──────────────────────────────────────────────────────────
+console.log('\nscaleNutrition');
+
+const recipe100 = {
+  items: [{ name: 'Морковный торт', grams: 100, unit: 'г', kcal: 300, p: 5, f: 15, c: 36 }],
+  total: { kcal: 300, p: 5, f: 15, c: 36 },
+};
+
+test('масштабирует эталонную порцию 100г до 150г', () => {
+  const r = scaleNutrition(recipe100, 100, 150);
+  assert.deepStrictEqual(r.total, { kcal: 450, p: 8, f: 23, c: 54 });
+  assert.strictEqual(r.items[0].grams, 150);
+  assert.strictEqual(r.items[0].kcal, 450);
+});
+
+test('не изменяет исходный сохранённый рецепт', () => {
+  scaleNutrition(recipe100, 100, 50);
+  assert.strictEqual(recipe100.items[0].grams, 100);
+  assert.strictEqual(recipe100.total.kcal, 300);
+});
+
+test('возвращает null для некорректного веса порции', () => {
+  assert.strictEqual(scaleNutrition(recipe100, 0, 100), null);
+  assert.strictEqual(scaleNutrition(recipe100, 100, -1), null);
 });
 
 // ── getExpectedByNow ─────────────────────────────────────────────────────────

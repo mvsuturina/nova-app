@@ -49,6 +49,7 @@ jobs:
             --argjson answers   "$answers" \
             --argjson snapshots "$snapshots" \
             --argjson meals     "$(get meal_log)" \
+            --argjson recipes   "$(get saved_recipes)" \
             --argjson water     "$(get water_log)" \
             --argjson activity  "$(get activity_log)" \
             --argjson goals     "$(get mini_goals)" \
@@ -64,6 +65,7 @@ jobs:
               answers:     $answers,
               snapshots:   $snapshots,
               meals:       $meals,
+              recipes:     $recipes,
               water:       $water,
               activity:    $activity,
               goals:       $goals,

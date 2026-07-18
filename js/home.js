@@ -22,7 +22,7 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
-const NUTRITION_DIAG_VERSION = 'v123';
+const NUTRITION_DIAG_VERSION = 'v124';
 const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
 
 function _logNutritionDiagnostic(event, details = {}) {
@@ -207,6 +207,118 @@ function _syncNutritionTotalToDescription() {
   if (result) result.textContent = totalLine;
 }
 
+function _escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+async function loadSavedRecipes() {
+  const select = document.getElementById('meal-recipe-select');
+  const status = document.getElementById('meal-recipe-status');
+  if (!select || !currentUser) return;
+  select.disabled = true;
+  if (status) status.textContent = 'Загружаю рецепты…';
+
+  const { data, error } = await sb.from('saved_recipes')
+    .select('id, name, portion_grams, nutrition_json')
+    .eq('user_id', currentUser.id)
+    .order('name', { ascending: true });
+
+  select.disabled = false;
+  if (error) {
+    console.error('saved recipes load failed:', error);
+    if (status) status.textContent = 'Справочник недоступен — сначала примени SQL-миграцию';
+    return;
+  }
+  savedRecipes = data || [];
+  select.innerHTML = '<option value="">Выбрать сохранённую еду…</option>' +
+    savedRecipes.map(recipe =>
+      `<option value="${recipe.id}">${_escapeHtml(recipe.name)} · ${recipe.portion_grams}г</option>`
+    ).join('');
+  select.value = '';
+  if (status) status.textContent = savedRecipes.length ? `${savedRecipes.length} в справочнике` : 'Сохранённых рецептов пока нет';
+  document.getElementById('meal-recipe-grams').style.display = 'none';
+  document.getElementById('meal-recipe-apply').style.display = 'none';
+}
+
+function selectSavedRecipe(recipeId) {
+  const recipe = savedRecipes.find(item => String(item.id) === String(recipeId));
+  const grams = document.getElementById('meal-recipe-grams');
+  const apply = document.getElementById('meal-recipe-apply');
+  const status = document.getElementById('meal-recipe-status');
+  grams.style.display = recipe ? 'block' : 'none';
+  apply.style.display = recipe ? 'block' : 'none';
+  if (!recipe) {
+    if (status) status.textContent = savedRecipes.length ? `${savedRecipes.length} в справочнике` : 'Сохранённых рецептов пока нет';
+    return;
+  }
+  grams.value = Math.round(Number(recipe.portion_grams));
+  if (status) status.innerHTML = `Эталонная порция ${recipe.portion_grams}г · <button onclick="deleteSavedRecipe(${recipe.id})" style="background:none;border:none;color:var(--red);font:inherit;padding:0;cursor:pointer;">удалить рецепт</button>`;
+}
+
+function applySavedRecipe() {
+  const recipeId = document.getElementById('meal-recipe-select')?.value;
+  const recipe = savedRecipes.find(item => String(item.id) === String(recipeId));
+  const grams = Math.round(Number(document.getElementById('meal-recipe-grams')?.value));
+  if (!recipe || !Number.isFinite(grams) || grams <= 0) return;
+
+  const source = recipe.nutrition_json;
+  if (!source?.items?.length || !source.total) {
+    document.getElementById('meal-recipe-status').textContent = 'В рецепте нет данных КБЖУ';
+    return;
+  }
+  _mealNutrition = scaleNutrition(source, recipe.portion_grams, grams);
+  const ta = document.getElementById('meal-modal-desc');
+  ta.value = `${recipe.name} ${grams}г`;
+  mealModalData.description = ta.value;
+  _renderNutritionBreakdown();
+  _syncNutritionTotalToDescription();
+  document.getElementById('meal-recipe-status').textContent = `Добавлено: ${recipe.name}, ${grams}г`;
+}
+
+async function saveCurrentRecipe() {
+  const status = document.getElementById('meal-recipe-save-status');
+  const name = document.getElementById('meal-recipe-name')?.value.trim();
+  const portionGrams = Math.round(Number(document.getElementById('meal-recipe-portion')?.value));
+  if (!_mealNutrition) return;
+  if (!name) { status.textContent = 'Введи название рецепта'; return; }
+  if (!Number.isFinite(portionGrams) || portionGrams <= 0) { status.textContent = 'Укажи вес порции'; return; }
+
+  const existing = savedRecipes.find(recipe => recipe.name.trim().toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'));
+  if (existing && !confirm(`Рецепт «${existing.name}» уже существует. Обновить его?`)) return;
+
+  const fields = {
+    name,
+    portion_grams: portionGrams,
+    nutrition_json: JSON.parse(JSON.stringify(_mealNutrition)),
+    updated_at: new Date().toISOString(),
+  };
+  status.textContent = 'Сохраняю…';
+  const query = existing
+    ? sb.from('saved_recipes').update(fields).eq('id', existing.id).eq('user_id', currentUser.id)
+    : sb.from('saved_recipes').insert({ user_id: currentUser.id, ...fields });
+  const { error } = await query;
+  if (error) {
+    console.error('saved recipe write failed:', error);
+    status.textContent = error.code === '23505' ? 'Рецепт с таким названием уже существует' : 'Не удалось сохранить рецепт';
+    return;
+  }
+  status.textContent = existing ? 'Рецепт обновлён' : 'Рецепт сохранён';
+  await loadSavedRecipes();
+}
+
+async function deleteSavedRecipe(recipeId) {
+  const recipe = savedRecipes.find(item => String(item.id) === String(recipeId));
+  if (!recipe || !confirm(`Удалить рецепт «${recipe.name}»?`)) return;
+  const { error } = await sb.from('saved_recipes').delete().eq('id', recipe.id).eq('user_id', currentUser.id);
+  if (error) {
+    document.getElementById('meal-recipe-status').textContent = 'Не удалось удалить рецепт';
+    return;
+  }
+  await loadSavedRecipes();
+}
+
 function _renderNutritionBreakdown() {
   const el = document.getElementById('meal-nutrition-breakdown');
   if (!el) return;
@@ -236,7 +348,19 @@ function _renderNutritionBreakdown() {
         <div style="font-size:11px;color:var(--text-faint);">Итого</div>
         <div style="font-size:12px;color:var(--purple-light);">~${total.kcal} ккал · Б${total.p}г Ж${total.f}г У${total.c}г</div>
       </div>
-    </div>`;
+    </div>
+    <details style="margin-top:9px;">
+      <summary style="font-size:11px;color:var(--purple-light);cursor:pointer;">＋ Сохранить как рецепт</summary>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px auto;gap:7px;margin-top:8px;">
+        <input id="meal-recipe-name" placeholder="Название" value="${_escapeHtml((mealModalData.description || '').split('\n')[0].replace(/\s+\d+\s*г\s*$/i, ''))}"
+               style="min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:'Jost',sans-serif;font-size:11px;">
+        <input id="meal-recipe-portion" type="number" min="1" inputmode="decimal" placeholder="Порция, г"
+               value="${items.reduce((sum, item) => sum + Number(item.grams || 0), 0)}"
+               style="width:72px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:'Jost',sans-serif;font-size:11px;box-sizing:border-box;">
+        <button onclick="saveCurrentRecipe()" style="background:var(--purple);border:none;border-radius:8px;padding:8px 10px;color:white;font-family:'Jost',sans-serif;font-size:11px;cursor:pointer;">Сохранить</button>
+      </div>
+      <div id="meal-recipe-save-status" style="font-size:10px;color:var(--text-faint);margin-top:5px;"></div>
+    </details>`;
 }
 
 function editNutritionGrams(idx) {
@@ -772,6 +896,7 @@ function openSnackModal(idx) {
 
   document.getElementById('meal-modal-delete').style.display = snack ? 'block' : 'none';
   document.getElementById('meal-modal').style.display = 'flex';
+  loadSavedRecipes();
 
   // Считаем высоту после display=flex — при display:none scrollHeight = 0
   _descTa.style.height = '1px';
@@ -943,6 +1068,7 @@ function openMealModal(type) {
   renderMealModalPhotos(type);
 
   document.getElementById('meal-modal').style.display = 'flex';
+  loadSavedRecipes();
 
   // Считаем высоту после display=flex — при display:none scrollHeight = 0
   _descTa.style.height = '1px';

@@ -23,6 +23,7 @@ let todayMeals = {
 let todayMealPhotos   = { breakfast: [], lunch: [], dinner: [] };
 let mealCarouselIdx   = { breakfast: 0,  lunch: 0,  dinner: 0 };
 let todaySnacks       = []; // [{id, description, quality, hungerBefore, hungerAfter, hungerAfterHour, nutritionJson, photos, carouselIdx}]
+let savedRecipes      = []; // личный справочник порций [{id,name,portion_grams,nutrition_json}]
 let todayActivity   = { warmup: false, workout: false, walk: false };
 let todayTools      = { nap: false, selfcare: false, shopping: false, reading: false, media: false, music: false };
 
