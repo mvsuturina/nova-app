@@ -956,14 +956,17 @@ async function estimateMealCalories() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: photos.length ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
+        // Qwen 3.6 replaces the retired Llama 4 Scout and supports both text and images.
+        model: 'qwen/qwen3.6-27b',
         messages,
         max_tokens: 800,
         temperature: 0.1,
       }),
     });
     const data = await resp.json();
-    if (data.error) throw new Error(data.error.message);
+    if (!resp.ok || data.error) {
+      throw new Error(data.error?.message || `Groq вернул HTTP ${resp.status}`);
+    }
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
     _mealNutrition = _parseNutritionResponse(raw);
     _renderNutritionBreakdown();
