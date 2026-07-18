@@ -22,6 +22,30 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
+const NUTRITION_DIAG_VERSION = 'v121';
+const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
+
+function _logNutritionDiagnostic(event, details = {}) {
+  const entry = {
+    time: new Date().toISOString(),
+    version: NUTRITION_DIAG_VERSION,
+    event,
+    ...details,
+  };
+  console.info('[NOVA nutrition]', entry);
+  try {
+    const previous = JSON.parse(localStorage.getItem(NUTRITION_DIAG_KEY) || '[]');
+    localStorage.setItem(NUTRITION_DIAG_KEY, JSON.stringify([...previous.slice(-19), entry]));
+  } catch (_) {}
+  return entry;
+}
+
+// Для диагностики в консоли браузера: getNutritionDiagnostics()
+function getNutritionDiagnostics() {
+  try { return JSON.parse(localStorage.getItem(NUTRITION_DIAG_KEY) || '[]'); }
+  catch (_) { return []; }
+}
+
 function _updateKcalDisplay() {
   const el = document.getElementById('score-kcal');
   if (!el) return;
@@ -951,6 +975,13 @@ async function estimateMealCalories() {
 
   btn.disabled = true; btn.textContent = '...'; res.textContent = '';
 
+  _logNutritionDiagnostic('request_started', {
+    model: 'qwen/qwen3.6-27b',
+    hasDescription: Boolean(desc),
+    descriptionLength: desc.length,
+    photoCount: photos.length,
+  });
+
   const instruction = `Ты нутрициолог. Посчитай ккал и БЖУ по каждому ингредиенту отдельно.
 Правила:
 - Тарелка по умолчанию: плоская 24 см диаметр. Если указан другой диаметр или тарелка глубокая — используй это
@@ -1033,6 +1064,15 @@ async function estimateMealCalories() {
         body: requestBody,
       });
       data = await resp.json();
+      _logNutritionDiagnostic('response_received', {
+        attempt: attempt + 1,
+        status: resp.status,
+        requestId: resp.headers.get('x-request-id') || resp.headers.get('request-id') || null,
+        finishReason: data.choices?.[0]?.finish_reason || null,
+        usage: data.usage || null,
+        error: data.error?.message || null,
+        contentPreview: data.choices?.[0]?.message?.content?.slice(0, 300) || null,
+      });
       if (resp.status !== 429 || attempt > 0) break;
 
       const errorText = data.error?.message || '';
@@ -1050,7 +1090,15 @@ async function estimateMealCalories() {
     }
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
     _mealNutrition = _parseNutritionResponse(raw);
-    if (!_mealNutrition) throw new Error('Модель не вернула данные о калорийности');
+    if (!_mealNutrition) {
+      const finishReason = data.choices?.[0]?.finish_reason || 'unknown';
+      const preview = raw.slice(0, 120) || '<пустой ответ>';
+      throw new Error(`Некорректный ответ модели (finish: ${finishReason}): ${preview}`);
+    }
+    _logNutritionDiagnostic('nutrition_parsed', {
+      itemCount: _mealNutrition.items.length,
+      total: _mealNutrition.total,
+    });
     _renderNutritionBreakdown();
     const t = _mealNutrition?.total;
     const totalLine = t
@@ -1062,6 +1110,7 @@ async function estimateMealCalories() {
     ta.style.height = '1px';
     ta.style.height = ta.scrollHeight + 'px';
   } catch(e) {
+    _logNutritionDiagnostic('request_failed', { message: e.message });
     res.textContent = 'Ошибка: ' + e.message;
   }
   btn.disabled = false; btn.textContent = '~ ккал';
