@@ -22,7 +22,7 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
-const NUTRITION_DIAG_VERSION = 'v122';
+const NUTRITION_DIAG_VERSION = 'v123';
 const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
 
 function _logNutritionDiagnostic(event, details = {}) {
@@ -191,6 +191,22 @@ function _recalcNutritionTotal() {
   );
 }
 
+function _syncNutritionTotalToDescription() {
+  if (!_mealNutrition) return;
+  const t = _mealNutrition.total;
+  const totalLine = `~${t.kcal} ккал · Б ${t.p}г · Ж ${t.f}г · У ${t.c}г`;
+  const ta = document.getElementById('meal-modal-desc');
+  if (ta) {
+    const base = ta.value.replace(/\n~\d+[^\n]+$/, '').trimEnd();
+    ta.value = base + (base ? '\n' : '') + totalLine;
+    mealModalData.description = ta.value;
+    ta.style.height = '1px';
+    ta.style.height = ta.scrollHeight + 'px';
+  }
+  const result = document.getElementById('meal-kcal-result');
+  if (result) result.textContent = totalLine;
+}
+
 function _renderNutritionBreakdown() {
   const el = document.getElementById('meal-nutrition-breakdown');
   if (!el) return;
@@ -203,12 +219,18 @@ function _renderNutritionBreakdown() {
             style="color:var(--purple-light);cursor:pointer;font-size:11px;flex-shrink:0;
                    padding:1px 7px;border:1px solid rgba(147,112,219,0.3);border-radius:5px;">
         ${it.grams}${it.unit || 'г'}</span>
-      <div style="font-size:11px;color:var(--text);flex-shrink:0;min-width:52px;text-align:right;">${it.kcal} ккал</div>
-      <div style="font-size:10px;color:var(--text-faint);flex-shrink:0;">Б${it.p} Ж${it.f} У${it.c}</div>
+      <span id="nitem-kcal-${i}" onclick="editNutritionValue(${i},'kcal')"
+            style="font-size:11px;color:var(--text);flex-shrink:0;min-width:52px;text-align:right;cursor:pointer;
+                   padding:1px 4px;border:1px solid rgba(147,112,219,0.18);border-radius:5px;">${it.kcal} ккал</span>
+      <div style="font-size:10px;color:var(--text-faint);flex-shrink:0;display:flex;gap:3px;">
+        <span id="nitem-p-${i}" onclick="editNutritionValue(${i},'p')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">Б${it.p}</span>
+        <span id="nitem-f-${i}" onclick="editNutritionValue(${i},'f')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">Ж${it.f}</span>
+        <span id="nitem-c-${i}" onclick="editNutritionValue(${i},'c')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">У${it.c}</span>
+      </div>
     </div>`).join('');
   el.innerHTML = `
     <div style="margin-top:10px;background:var(--bg3);border-radius:10px;padding:8px 12px;">
-      <div style="font-size:9px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">СОСТАВ · тап на граммы чтобы поправить</div>
+      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">СОСТАВ · НАЖМИ НА ЛЮБОЕ ЧИСЛО, ЧТОБЫ ИЗМЕНИТЬ</div>
       ${rows}
       <div style="display:flex;justify-content:space-between;align-items:center;padding-top:7px;margin-top:4px;">
         <div style="font-size:11px;color:var(--text-faint);">Итого</div>
@@ -238,20 +260,42 @@ function editNutritionGrams(idx) {
     item.c     = Math.round(item.c    * factor);
     _recalcNutritionTotal();
     _renderNutritionBreakdown();
-    // обновляем итоговую строку в textarea
-    const t = _mealNutrition.total;
-    const totalLine = `~${t.kcal} ккал · Б ${t.p}г · Ж ${t.f}г · У ${t.c}г`;
-    const ta = document.getElementById('meal-modal-desc');
-    if (ta) {
-      ta.value = ta.value.replace(/\n~\d+[^\n]+$/, '') + '\n' + totalLine;
-      mealModalData.description = ta.value;
-      ta.style.height = '1px';
-      ta.style.height = ta.scrollHeight + 'px';
-    }
-    document.getElementById('meal-kcal-result').textContent = totalLine;
+    _syncNutritionTotalToDescription();
   };
   input.addEventListener('blur',  commit);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+}
+
+function editNutritionValue(idx, field) {
+  if (!_mealNutrition || !['kcal', 'p', 'f', 'c'].includes(field)) return;
+  const item = _mealNutrition.items[idx];
+  const span = document.getElementById(`nitem-${field}-${idx}`);
+  if (!item || !span) return;
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = item[field];
+  input.min = 0;
+  input.step = 1;
+  input.style.cssText = `width:${field === 'kcal' ? '58' : '42'}px;background:var(--bg);border:1px solid var(--purple-light);
+    border-radius:6px;color:var(--text);font-size:11px;padding:2px 4px;font-family:'Jost',sans-serif;`;
+  span.replaceWith(input);
+  input.focus(); input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    item[field] = Math.max(0, Math.round(Number(input.value) || 0));
+    _recalcNutritionTotal();
+    _renderNutritionBreakdown();
+    _syncNutritionTotalToDescription();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { e.preventDefault(); committed = true; _renderNutritionBreakdown(); }
+  });
 }
 
 function renderScore() {
