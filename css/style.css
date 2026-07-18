@@ -137,7 +137,7 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 
 /* ── карточки еды ── */
 .meal-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: scroll; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.meal-card { flex: 0 0 calc(50% - 4px); border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 140px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center; filter: brightness(1.18); scroll-snap-align: start; }
+.meal-card { flex: 0 0 calc(50% - 4px); border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--bg2); position: relative; height: 158px; cursor: pointer; -webkit-tap-highlight-color: transparent; background-size: cover; background-position: center; filter: brightness(1.18); scroll-snap-align: start; }
 .meal-row::-webkit-scrollbar { display: none; }
 .meal-card.done { border-color: var(--purple); }
 .meal-card:active { opacity: 0.85; }
@@ -148,6 +148,11 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .meal-slot-name { font-size: 12px; color: #e0d8f8; font-weight: 500; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .meal-card.done .meal-slot-name { color: #fff; }
 .meal-slot-desc { font-size: 10px; color: rgba(255,255,255,0.6); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.meal-nutrition-preview { margin-top: 3px; display: flex; flex-direction: column; gap: 4px; }
+.meal-preview-kcal { font-size: 11px; line-height: 1; color: rgba(255,255,255,0.92); font-weight: 500; }
+.meal-preview-macros { display: flex; gap: 4px; flex-wrap: nowrap; }
+.meal-preview-macros span { flex: 1; min-width: 0; padding: 3px 4px; border-radius: 5px; background: rgba(8,7,15,0.58); color: rgba(255,255,255,0.78); font-size: 9px; line-height: 1; white-space: nowrap; text-align: center; }
+.meal-preview-macros b { color: var(--purple-light); font-weight: 500; }
 .meal-cam-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: 0.2; z-index: 0; }
 .meal-dots { position: absolute; bottom: 52px; left: 0; right: 0; display: flex; justify-content: center; gap: 4px; z-index: 2; pointer-events: none; }
 .meal-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.35); transition: background 0.2s; }

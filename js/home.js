@@ -626,6 +626,19 @@ const ACTIVITY_SLOTS = {
   walk:    { label: 'Прогулка',    hint: '−10' },
 };
 
+function _renderMealNutritionPreview(nutrition) {
+  if (!nutrition) return '';
+  const value = key => Math.max(0, Math.round(Number(nutrition[key]) || 0));
+  return `<div class="meal-nutrition-preview">
+    <div class="meal-preview-kcal">~${value('kcal')} ккал</div>
+    <div class="meal-preview-macros">
+      <span><b>Б</b> ${value('p')}г</span>
+      <span><b>Ж</b> ${value('f')}г</span>
+      <span><b>У</b> ${value('c')}г</span>
+    </div>
+  </div>`;
+}
+
 function renderTrackers() {
   const container = document.getElementById('trackers-container');
   if (!container) return;
@@ -675,6 +688,7 @@ function renderTrackers() {
       const type   = item.type;
       const { label, window } = MEAL_WINDOWS[type];
       const meal   = todayMeals[type];
+      const nutrition = meal.nutritionJson?.total || _parseMealKcal(meal.description);
       const photos = todayMealPhotos[type] || [];
       const photo  = photos[0] || null;
       const qualityTag = meal.quality === 'plan'
@@ -696,12 +710,13 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">${meal.done ? '✓' : '○'}</div>
             <div class="meal-slot-name">${label} ${qualityTag}</div>
-            ${(() => { const n = _parseMealKcal(meal.description); return n ? `<div class="meal-slot-desc">~${n.kcal} ккал</div>` : ''; })()}
+            ${_renderMealNutritionPreview(nutrition)}
           </div>
         </div>`;
     } else {
       const i     = item.idx;
       const snack = todaySnacks[i];
+      const nutrition = snack.nutritionJson?.total || _parseMealKcal(snack.description);
       const photo = snack.photos[0] || null;
       const multiPhoto = snack.photos.length > 1
         ? `<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border-radius:6px;padding:2px 6px;font-size:9px;color:rgba(255,255,255,0.8);z-index:2;">1/${snack.photos.length}</div>`
@@ -721,7 +736,7 @@ function renderTrackers() {
           <div class="meal-card-label">
             <div class="meal-slot-icon">✓</div>
             <div class="meal-slot-name">Перекус ${qualityTag}</div>
-            ${(() => { const n = snack.nutritionJson?.total || _parseMealKcal(snack.description); return n ? `<div class="meal-slot-desc">~${n.kcal} ккал</div>` : ''; })()}
+            ${_renderMealNutritionPreview(nutrition)}
           </div>
         </div>`;
     }
