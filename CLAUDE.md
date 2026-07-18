@@ -357,6 +357,7 @@ my_param_log: [{ time: new Date().toISOString(), value: val }],                 
 ## Трекеры (виджет на главной)
 - `meal_log` — одна строка = один приём пищи; `meal_type IN ('breakfast','lunch','dinner')`, `in_window bool`
 - `saved_recipes` — личный справочник проверенных порций: уникальное для пользователя название, эталонный вес `portion_grams`, состав и КБЖУ в `nutrition_json`. При выборе рецепт масштабируется по граммам и копируется в `meal_log`
+- `nutrition_json` хранит по каждому ингредиенту и в `total`: `kcal`, `p`, `f`, `c`, `fiber` (г), `sodium` (мг). У старых записей `fiber`/`sodium` могут отсутствовать и отображаются как неизвестные
 - `water_log` — одна строка = один стакан; цель 8 в день
 - При логировании через виджет → `showSurvey2()` пропускает соответствующий вопрос через `externalAnsweredKeys`
 - Обед и ужин будут в будущих опросах; сейчас в Survey 2 только `meal_breakfast`

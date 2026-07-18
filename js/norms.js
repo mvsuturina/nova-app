@@ -27,15 +27,22 @@ function scaleNutrition(nutrition, sourceGrams, targetGrams) {
   if (!nutrition?.items?.length || !nutrition.total || source <= 0 || target <= 0) return null;
   const factor = target / source;
   const scale = value => Math.max(0, Math.round(Number(value || 0) * factor));
+  const scaleOptional = (value, digits = 0) => {
+    if (value === null || value === undefined || value === '') return null;
+    const multiplier = 10 ** digits;
+    return Math.max(0, Math.round(Number(value) * factor * multiplier) / multiplier);
+  };
   return {
     items: nutrition.items.map(item => ({
       ...item,
       grams: Math.max(1, scale(item.grams)),
       kcal: scale(item.kcal), p: scale(item.p), f: scale(item.f), c: scale(item.c),
+      fiber: scaleOptional(item.fiber, 1), sodium: scaleOptional(item.sodium),
     })),
     total: {
       kcal: scale(nutrition.total.kcal), p: scale(nutrition.total.p),
       f: scale(nutrition.total.f), c: scale(nutrition.total.c),
+      fiber: scaleOptional(nutrition.total.fiber, 1), sodium: scaleOptional(nutrition.total.sodium),
     },
   };
 }

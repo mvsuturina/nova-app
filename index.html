@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <title>NOVA</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=125">
+<link rel="stylesheet" href="css/style.css?v=126">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 </head>
@@ -468,6 +468,24 @@
     </div>
   </div>
 
+  <!-- ── NUTRITION EDITOR ───────────────────────────────── -->
+  <div id="nutrition-editor-modal" class="nutrition-editor-modal" onclick="closeNutritionEditor()">
+    <div class="nutrition-editor-sheet" onclick="event.stopPropagation()">
+      <div class="nutrition-editor-head">
+        <div>
+          <div class="nutrition-editor-kicker">ПИТАТЕЛЬНАЯ ЦЕННОСТЬ</div>
+          <div class="nutrition-editor-title">Изменить нутриенты</div>
+        </div>
+        <button class="nutrition-editor-close" onclick="closeNutritionEditor()">×</button>
+      </div>
+      <div id="nutrition-editor-body" class="nutrition-editor-body"></div>
+      <div class="nutrition-editor-actions">
+        <button class="nutrition-editor-cancel" onclick="closeNutritionEditor()">Отмена</button>
+        <button class="nutrition-editor-save" onclick="saveNutritionEditor()">Сохранить изменения</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── CYCLE MODAL ────────────────────────────────────── -->
   <div id="cycle-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(8,7,15,0.85);" onclick="closeCycleModal()">
     <div onclick="event.stopPropagation()"
@@ -499,13 +517,13 @@
 
 </div>
 <script src="js/state.js"></script>
-<script src="js/norms.js?v=124"></script>
+<script src="js/norms.js?v=126"></script>
 <script src="js/daylog.js"></script>
 <script src="js/score.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/journal.js"></script>
 <script src="js/challenge.js"></script>
-<script src="js/home.js?v=125"></script>
+<script src="js/home.js?v=126"></script>
 <script src="js/survey.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/push.js"></script>

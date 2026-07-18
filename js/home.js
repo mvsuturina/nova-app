@@ -22,7 +22,7 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
-const NUTRITION_DIAG_VERSION = 'v124';
+const NUTRITION_DIAG_VERSION = 'v126';
 const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
 
 function _logNutritionDiagnostic(event, details = {}) {
@@ -103,6 +103,13 @@ function _parseNutritionResponse(text) {
     const parsed = JSON.parse(jsonText);
     if (Array.isArray(parsed.items) && parsed.total) {
       const toNumber = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : 0;
+      const toOptionalNumber = (value, digits = 0) => {
+        if (value === null || value === undefined || value === '') return null;
+        const number = Number(value);
+        if (!Number.isFinite(number)) return null;
+        const factor = 10 ** digits;
+        return Math.max(0, Math.round(number * factor) / factor);
+      };
       const items = parsed.items.map(item => ({
         name: String(item.name || '—'),
         grams: Math.max(1, toNumber(item.grams)),
@@ -111,12 +118,16 @@ function _parseNutritionResponse(text) {
         p: toNumber(item.p),
         f: toNumber(item.f),
         c: toNumber(item.c),
+        fiber: toOptionalNumber(item.fiber, 1),
+        sodium: toOptionalNumber(item.sodium),
       }));
       const total = {
         kcal: toNumber(parsed.total.kcal),
         p: toNumber(parsed.total.p),
         f: toNumber(parsed.total.f),
         c: toNumber(parsed.total.c),
+        fiber: toOptionalNumber(parsed.total.fiber, 1),
+        sodium: toOptionalNumber(parsed.total.sodium),
       };
       if (items.length && total.kcal > 0) return { items, total };
     }
@@ -160,6 +171,8 @@ function _parseNutritionResponse(text) {
       p: pM ? +pM[1] : 0,
       f: fM ? +fM[1] : 0,
       c: cM ? +cM[1] : 0,
+      fiber: null,
+      sodium: null,
     });
   }
 
@@ -173,11 +186,12 @@ function _parseNutritionResponse(text) {
     const pM = t.match(/Б\s*(\d+)/);
     const fM = t.match(/Ж\s*(\d+)/);
     const cM = t.match(/У\s*(\d+)/);
-    if (kM && pM && fM && cM) { total = { kcal: +kM[1], p: +pM[1], f: +fM[1], c: +cM[1] }; break; }
+    if (kM && pM && fM && cM) { total = { kcal: +kM[1], p: +pM[1], f: +fM[1], c: +cM[1], fiber: null, sodium: null }; break; }
   }
 
-  if (!total && items.length)
-    total = items.reduce((a, it) => ({ kcal: a.kcal+it.kcal, p: a.p+it.p, f: a.f+it.f, c: a.c+it.c }), { kcal:0, p:0, f:0, c:0 });
+  if (!total && items.length) {
+    total = items.reduce((a, it) => ({ kcal: a.kcal+it.kcal, p: a.p+it.p, f: a.f+it.f, c: a.c+it.c, fiber:null, sodium:null }), { kcal:0, p:0, f:0, c:0, fiber:null, sodium:null });
+  }
 
   if (!total) return null;
   return { items, total };
@@ -185,10 +199,13 @@ function _parseNutritionResponse(text) {
 
 function _recalcNutritionTotal() {
   if (!_mealNutrition) return;
-  _mealNutrition.total = _mealNutrition.items.reduce(
-    (acc, it) => ({ kcal: acc.kcal + it.kcal, p: acc.p + it.p, f: acc.f + it.f, c: acc.c + it.c }),
-    { kcal: 0, p: 0, f: 0, c: 0 }
-  );
+  const sum = field => _mealNutrition.items.reduce((value, item) => value + Number(item[field] || 0), 0);
+  const has = field => _mealNutrition.items.some(item => item[field] !== null && item[field] !== undefined);
+  _mealNutrition.total = {
+    kcal: Math.round(sum('kcal')), p: Math.round(sum('p')), f: Math.round(sum('f')), c: Math.round(sum('c')),
+    fiber: has('fiber') ? Math.round(sum('fiber') * 10) / 10 : null,
+    sodium: has('sodium') ? Math.round(sum('sodium')) : null,
+  };
 }
 
 function _syncNutritionTotalToDescription() {
@@ -324,30 +341,27 @@ function _renderNutritionBreakdown() {
   if (!el) return;
   if (!_mealNutrition) { el.innerHTML = ''; return; }
   const { items, total } = _mealNutrition;
-  const rows = items.map((it, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
-      <div style="flex:1;font-size:12px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.name}</div>
-      <span id="nitem-g-${i}" onclick="editNutritionGrams(${i})"
-            style="color:var(--purple-light);cursor:pointer;font-size:11px;flex-shrink:0;
-                   padding:1px 7px;border:1px solid rgba(147,112,219,0.3);border-radius:5px;">
-        ${it.grams}${it.unit || 'г'}</span>
-      <span id="nitem-kcal-${i}" onclick="editNutritionValue(${i},'kcal')"
-            style="font-size:11px;color:var(--text);flex-shrink:0;min-width:52px;text-align:right;cursor:pointer;
-                   padding:1px 4px;border:1px solid rgba(147,112,219,0.18);border-radius:5px;">${it.kcal} ккал</span>
-      <div style="font-size:10px;color:var(--text-faint);flex-shrink:0;display:flex;gap:3px;">
-        <span id="nitem-p-${i}" onclick="editNutritionValue(${i},'p')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">Б${it.p}</span>
-        <span id="nitem-f-${i}" onclick="editNutritionValue(${i},'f')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">Ж${it.f}</span>
-        <span id="nitem-c-${i}" onclick="editNutritionValue(${i},'c')" style="cursor:pointer;padding:1px 3px;border:1px solid rgba(147,112,219,0.18);border-radius:4px;">У${it.c}</span>
+  const metric = (value, unit) => value === null || value === undefined ? '—' : `${value}${unit}`;
+  const rows = items.map(it => `
+    <div class="nutrition-summary-item">
+      <div class="nutrition-summary-top">
+        <span class="nutrition-summary-name">${_escapeHtml(it.name)}</span>
+        <span>${it.grams}${it.unit || 'г'} · ${it.kcal} ккал</span>
+      </div>
+      <div class="nutrition-summary-values">
+        <span>Б ${it.p}г</span><span>Ж ${it.f}г</span><span>У ${it.c}г</span>
+        <span>Клетч. ${metric(it.fiber, 'г')}</span><span>Натрий ${metric(it.sodium, 'мг')}</span>
       </div>
     </div>`).join('');
   el.innerHTML = `
-    <div style="margin-top:10px;background:var(--bg3);border-radius:10px;padding:8px 12px;">
-      <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;">СОСТАВ · НАЖМИ НА ЛЮБОЕ ЧИСЛО, ЧТОБЫ ИЗМЕНИТЬ</div>
+    <div class="nutrition-summary">
+      <div class="nutrition-summary-heading">СОСТАВ</div>
       ${rows}
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:7px;margin-top:4px;">
-        <div style="font-size:11px;color:var(--text-faint);">Итого</div>
-        <div style="font-size:12px;color:var(--purple-light);">~${total.kcal} ккал · Б${total.p}г Ж${total.f}г У${total.c}г</div>
+      <div class="nutrition-summary-total">
+        <div><span>Итого</span><strong>~${total.kcal} ккал · Б${total.p}г Ж${total.f}г У${total.c}г</strong></div>
+        <div class="nutrition-summary-extra">Клетчатка ${metric(total.fiber, 'г')} · Натрий ${metric(total.sodium, 'мг')}</div>
       </div>
+      <button class="nutrition-edit-btn" onclick="openNutritionEditor()">Изменить нутриенты</button>
     </div>
     <details style="margin-top:9px;">
       <summary style="font-size:11px;color:var(--purple-light);cursor:pointer;">＋ Сохранить как рецепт</summary>
@@ -361,6 +375,72 @@ function _renderNutritionBreakdown() {
       </div>
       <div id="meal-recipe-save-status" style="font-size:10px;color:var(--text-faint);margin-top:5px;"></div>
     </details>`;
+}
+
+function openNutritionEditor() {
+  if (!_mealNutrition) return;
+  const body = document.getElementById('nutrition-editor-body');
+  body.innerHTML = _mealNutrition.items.map((item, index) => `
+    <section class="nutrition-editor-item">
+      <div class="nutrition-editor-item-name">${_escapeHtml(item.name)}</div>
+      <div class="nutrition-editor-grid">
+        ${_nutritionEditorField(index, 'grams', 'Порция', item.grams, item.unit || 'г', 1)}
+        ${_nutritionEditorField(index, 'kcal', 'Калории', item.kcal, 'ккал', 1)}
+        ${_nutritionEditorField(index, 'p', 'Белки', item.p, 'г', 1)}
+        ${_nutritionEditorField(index, 'f', 'Жиры', item.f, 'г', 1)}
+        ${_nutritionEditorField(index, 'c', 'Углеводы', item.c, 'г', 1)}
+        ${_nutritionEditorField(index, 'fiber', 'Клетчатка', item.fiber, 'г', 0.1)}
+        ${_nutritionEditorField(index, 'sodium', 'Натрий', item.sodium, 'мг', 1)}
+      </div>
+    </section>`).join('');
+  document.getElementById('nutrition-editor-modal').style.display = 'flex';
+}
+
+function _nutritionEditorField(index, field, label, value, unit, step) {
+  return `<label class="nutrition-editor-field">
+    <span>${label}</span>
+    <div><input data-index="${index}" data-field="${field}" type="number" min="0" step="${step}"
+                inputmode="decimal" value="${value ?? ''}" placeholder="—"
+                ${field === 'grams' ? `onchange="scaleNutritionEditorRow(${index},this.value)"` : ''}><em>${unit}</em></div>
+  </label>`;
+}
+
+function scaleNutritionEditorRow(index, nextGrams) {
+  const source = _mealNutrition?.items?.[index];
+  const target = Number(nextGrams);
+  if (!source || target <= 0 || Number(source.grams) <= 0) return;
+  const factor = target / Number(source.grams);
+  const set = (field, digits = 0) => {
+    const input = document.querySelector(`#nutrition-editor-body input[data-index="${index}"][data-field="${field}"]`);
+    if (!input || source[field] === null || source[field] === undefined) return;
+    const multiplier = 10 ** digits;
+    input.value = Math.max(0, Math.round(Number(source[field]) * factor * multiplier) / multiplier);
+  };
+  set('kcal'); set('p'); set('f'); set('c'); set('fiber', 1); set('sodium');
+}
+
+function closeNutritionEditor() {
+  const modal = document.getElementById('nutrition-editor-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function saveNutritionEditor() {
+  if (!_mealNutrition) return;
+  document.querySelectorAll('#nutrition-editor-body input').forEach(input => {
+    const item = _mealNutrition.items[Number(input.dataset.index)];
+    const field = input.dataset.field;
+    if (!item) return;
+    if (input.value === '' && (field === 'fiber' || field === 'sodium')) {
+      item[field] = null;
+      return;
+    }
+    const value = Math.max(field === 'grams' ? 1 : 0, Number(input.value) || 0);
+    item[field] = field === 'fiber' ? Math.round(value * 10) / 10 : Math.round(value);
+  });
+  _recalcNutritionTotal();
+  _renderNutritionBreakdown();
+  _syncNutritionTotalToDescription();
+  closeNutritionEditor();
 }
 
 function editNutritionGrams(idx) {
@@ -1167,15 +1247,17 @@ async function estimateMealCalories() {
     photoCount: photos.length,
   });
 
-  const instruction = `Ты нутрициолог. Посчитай ккал и БЖУ по каждому ингредиенту отдельно.
+  const instruction = `Ты нутрициолог. Посчитай ккал, БЖУ, пищевую клетчатку и натрий по каждому ингредиенту отдельно.
 Правила:
 - Тарелка по умолчанию: плоская 24 см диаметр. Если указан другой диаметр или тарелка глубокая — используй это
 - По фото оцени заполненность тарелки и рассчитай граммы исходя из диаметра
 - Если указаны граммы в описании — используй их, они точнее фото
 - Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
+- fiber указывай в граммах, допускаются десятичные значения
+- sodium указывай в миллиграммах. Оценивай по типичному содержанию натрия в ингредиентах и стандартном рецепте, включая добавленную соль, соусы и обработанные продукты
 Верни только JSON без markdown и пояснений строго в таком формате:
-{"items":[{"name":"название","grams":100,"unit":"г","kcal":100,"p":10,"f":5,"c":15}],"total":{"kcal":100,"p":10,"f":5,"c":15}}
-В items перечисли все видимые ингредиенты, а в total — их сумму. Все числа должны быть числами, unit — только "г" или "мл".`;
+{"items":[{"name":"название","grams":100,"unit":"г","kcal":100,"p":10,"f":5,"c":15,"fiber":3.5,"sodium":240}],"total":{"kcal":100,"p":10,"f":5,"c":15,"fiber":3.5,"sodium":240}}
+В items перечисли все видимые ингредиенты, а в total — их сумму. Все показатели должны быть числами, unit — только "г" или "мл".`;
 
   try {
     let messages;

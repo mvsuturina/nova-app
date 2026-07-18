@@ -153,6 +153,40 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .meal-preview-macros { display: flex; gap: 4px; flex-wrap: nowrap; }
 .meal-preview-macros span { flex: 1; min-width: 0; padding: 3px 4px; border-radius: 5px; background: rgba(8,7,15,0.58); color: rgba(255,255,255,0.78); font-size: 9px; line-height: 1; white-space: nowrap; text-align: center; }
 .meal-preview-macros b { color: var(--purple-light); font-weight: 500; }
+
+/* ── подробная пищевая ценность ── */
+.nutrition-summary { margin-top: 10px; background: var(--bg3); border-radius: 12px; padding: 10px 12px; }
+.nutrition-summary-heading { font-size: 9px; letter-spacing: 2px; color: var(--text-faint); margin-bottom: 4px; }
+.nutrition-summary-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.nutrition-summary-top { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--text-faint); }
+.nutrition-summary-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); font-size: 12px; }
+.nutrition-summary-values { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 10px; color: var(--text-faint); }
+.nutrition-summary-total { padding-top: 9px; font-size: 11px; }
+.nutrition-summary-total > div:first-child { display: flex; justify-content: space-between; gap: 8px; }
+.nutrition-summary-total span { color: var(--text-faint); }
+.nutrition-summary-total strong { color: var(--purple-light); font-weight: 400; text-align: right; }
+.nutrition-summary-extra { margin-top: 5px; color: var(--text-dim); text-align: right; }
+.nutrition-edit-btn { width: 100%; margin-top: 10px; padding: 9px; background: none; border: 1px solid rgba(147,112,219,0.35); border-radius: 8px; color: var(--purple-light); font: 11px 'Jost', sans-serif; cursor: pointer; }
+
+/* ── полноэкранный редактор нутриентов ── */
+.nutrition-editor-modal { display: none; position: fixed; inset: 0; z-index: 360; background: rgba(8,7,15,0.88); align-items: flex-end; justify-content: center; }
+.nutrition-editor-sheet { width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 22px 22px 0 0; }
+.nutrition-editor-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
+.nutrition-editor-kicker { font-size: 8px; letter-spacing: 2.5px; color: var(--text-faint); }
+.nutrition-editor-title { margin-top: 3px; color: var(--text); font: 22px 'Cormorant Garamond', serif; }
+.nutrition-editor-close { width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--bg3); color: var(--text-muted); font-size: 22px; cursor: pointer; }
+.nutrition-editor-body { flex: 1; overflow-y: auto; padding: 14px 16px; -webkit-overflow-scrolling: touch; }
+.nutrition-editor-item { padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg3); }
+.nutrition-editor-item-name { margin-bottom: 10px; color: var(--text); font-size: 13px; }
+.nutrition-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.nutrition-editor-field > span { display: block; margin-bottom: 4px; color: var(--text-faint); font-size: 9px; letter-spacing: 0.5px; }
+.nutrition-editor-field > div { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg2); overflow: hidden; }
+.nutrition-editor-field input { min-width: 0; width: 100%; padding: 9px; border: none; outline: none; background: transparent; color: var(--text); font: 13px 'Jost', sans-serif; }
+.nutrition-editor-field em { padding-right: 8px; color: var(--text-faint); font-size: 9px; font-style: normal; }
+.nutrition-editor-actions { display: flex; gap: 8px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+.nutrition-editor-actions button { padding: 13px 12px; border-radius: 11px; font: 12px 'Jost', sans-serif; cursor: pointer; }
+.nutrition-editor-cancel { background: none; border: 1px solid var(--border); color: var(--text-muted); }
+.nutrition-editor-save { flex: 1; border: none; background: var(--purple); color: white; }
 .meal-cam-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: 0.2; z-index: 0; }
 .meal-dots { position: absolute; bottom: 52px; left: 0; right: 0; display: flex; justify-content: center; gap: 4px; z-index: 2; pointer-events: none; }
 .meal-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.35); transition: background 0.2s; }
