@@ -22,7 +22,7 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
-const NUTRITION_DIAG_VERSION = 'v121';
+const NUTRITION_DIAG_VERSION = 'v122';
 const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
 
 function _logNutritionDiagnostic(event, details = {}) {
@@ -988,7 +988,9 @@ async function estimateMealCalories() {
 - По фото оцени заполненность тарелки и рассчитай граммы исходя из диаметра
 - Если указаны граммы в описании — используй их, они точнее фото
 - Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
-Верни только JSON по заданной схеме. В items перечисли все видимые ингредиенты, а в total — их сумму.`;
+Верни только JSON без markdown и пояснений строго в таком формате:
+{"items":[{"name":"название","grams":100,"unit":"г","kcal":100,"p":10,"f":5,"c":15}],"total":{"kcal":100,"p":10,"f":5,"c":15}}
+В items перечисли все видимые ингредиенты, а в total — их сумму. Все числа должны быть числами, unit — только "г" или "мл".`;
 
   try {
     let messages;
@@ -1013,48 +1015,7 @@ async function estimateMealCalories() {
       max_tokens: 500,
       temperature: 0.7,
       reasoning_effort: 'none',
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'meal_nutrition',
-          strict: true,
-          schema: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              items: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  properties: {
-                    name: { type: 'string' },
-                    grams: { type: 'number' },
-                    unit: { type: 'string', enum: ['г', 'мл'] },
-                    kcal: { type: 'number' },
-                    p: { type: 'number' },
-                    f: { type: 'number' },
-                    c: { type: 'number' },
-                  },
-                  required: ['name', 'grams', 'unit', 'kcal', 'p', 'f', 'c'],
-                },
-              },
-              total: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  kcal: { type: 'number' },
-                  p: { type: 'number' },
-                  f: { type: 'number' },
-                  c: { type: 'number' },
-                },
-                required: ['kcal', 'p', 'f', 'c'],
-              },
-            },
-            required: ['items', 'total'],
-          },
-        },
-      },
+      response_format: { type: 'json_object' },
     });
     let resp, data;
     for (let attempt = 0; attempt < 2; attempt++) {
