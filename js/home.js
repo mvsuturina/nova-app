@@ -74,6 +74,32 @@ function _normalizeNutritionText(text) {
 }
 
 function _parseNutritionResponse(text) {
+  try {
+    const jsonText = text.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+    const parsed = JSON.parse(jsonText);
+    if (Array.isArray(parsed.items) && parsed.total) {
+      const toNumber = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : 0;
+      const items = parsed.items.map(item => ({
+        name: String(item.name || '—'),
+        grams: Math.max(1, toNumber(item.grams)),
+        unit: item.unit === 'мл' ? 'мл' : 'г',
+        kcal: toNumber(item.kcal),
+        p: toNumber(item.p),
+        f: toNumber(item.f),
+        c: toNumber(item.c),
+      }));
+      const total = {
+        kcal: toNumber(parsed.total.kcal),
+        p: toNumber(parsed.total.p),
+        f: toNumber(parsed.total.f),
+        c: toNumber(parsed.total.c),
+      };
+      if (items.length && total.kcal > 0) return { items, total };
+    }
+  } catch (_) {
+    // Старые сохранённые ответы и fallback моделей могут приходить обычным текстом.
+  }
+
   const clean = _normalizeNutritionText(text);
   const items = [];
 
@@ -931,10 +957,7 @@ async function estimateMealCalories() {
 - По фото оцени заполненность тарелки и рассчитай граммы исходя из диаметра
 - Если указаны граммы в описании — используй их, они точнее фото
 - Для составных блюд (пирожок, котлета, борщ) — среднее по стандартной порции
-Формат ответа — СТРОГО такой, без лишнего текста, БЕЗ LaTeX, БЕЗ знаков $, только цифры:
-- Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
-- Название ингредиента Xг: X ккал · Б Xг · Ж Xг · У Xг
-~X ккал · Б Xг · Ж Xг · У Xг`;
+Верни только JSON по заданной схеме. В items перечисли все видимые ингредиенты, а в total — их сумму.`;
 
   try {
     let messages;
@@ -952,23 +975,82 @@ async function estimateMealCalories() {
       ];
     }
 
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        // Qwen 3.6 replaces the retired Llama 4 Scout and supports both text and images.
-        model: 'qwen/qwen3.6-27b',
-        messages,
-        max_tokens: 800,
-        temperature: 0.1,
-      }),
+    const requestBody = JSON.stringify({
+      // Qwen 3.6 replaces the retired Llama 4 Scout and supports both text and images.
+      model: 'qwen/qwen3.6-27b',
+      messages,
+      max_tokens: 500,
+      temperature: 0.7,
+      reasoning_effort: 'none',
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'meal_nutrition',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    name: { type: 'string' },
+                    grams: { type: 'number' },
+                    unit: { type: 'string', enum: ['г', 'мл'] },
+                    kcal: { type: 'number' },
+                    p: { type: 'number' },
+                    f: { type: 'number' },
+                    c: { type: 'number' },
+                  },
+                  required: ['name', 'grams', 'unit', 'kcal', 'p', 'f', 'c'],
+                },
+              },
+              total: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  kcal: { type: 'number' },
+                  p: { type: 'number' },
+                  f: { type: 'number' },
+                  c: { type: 'number' },
+                },
+                required: ['kcal', 'p', 'f', 'c'],
+              },
+            },
+            required: ['items', 'total'],
+          },
+        },
+      },
     });
-    const data = await resp.json();
+    let resp, data;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: requestBody,
+      });
+      data = await resp.json();
+      if (resp.status !== 429 || attempt > 0) break;
+
+      const errorText = data.error?.message || '';
+      const retryHeader = Number.parseFloat(resp.headers.get('retry-after'));
+      const retryFromMessage = Number.parseFloat(errorText.match(/try again in ([\d.]+)s/i)?.[1]);
+      const retrySeconds = Math.min(30, Math.max(1, Math.ceil(retryHeader || retryFromMessage || 10)));
+      for (let left = retrySeconds; left > 0; left--) {
+        res.textContent = `Лимит Groq, повтор через ${left} сек.`;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      res.textContent = 'Повторяю расчёт…';
+    }
     if (!resp.ok || data.error) {
       throw new Error(data.error?.message || `Groq вернул HTTP ${resp.status}`);
     }
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
     _mealNutrition = _parseNutritionResponse(raw);
+    if (!_mealNutrition) throw new Error('Модель не вернула данные о калорийности');
     _renderNutritionBreakdown();
     const t = _mealNutrition?.total;
     const totalLine = t
