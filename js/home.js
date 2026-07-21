@@ -22,7 +22,7 @@ function renderHome() {
 // Делегирует в norms.js (единственный источник правды для парсинга)
 function _parseMealKcal(desc) { return parseMealKcal(desc); }
 
-const NUTRITION_DIAG_VERSION = 'v126';
+const NUTRITION_DIAG_VERSION = 'v127';
 const NUTRITION_DIAG_KEY = 'nova_nutrition_diagnostics';
 
 function _logNutritionDiagnostic(event, details = {}) {
