@@ -1275,21 +1275,22 @@ async function estimateMealCalories() {
       ];
     }
 
-    const requestBody = JSON.stringify({
+    const makeRequestBody = maxTokens => JSON.stringify({
       // Qwen 3.6 replaces the retired Llama 4 Scout and supports both text and images.
       model: 'qwen/qwen3.6-27b',
       messages,
-      max_tokens: 500,
+      max_tokens: maxTokens,
       temperature: 0.7,
       reasoning_effort: 'none',
       response_format: { type: 'json_object' },
     });
     let resp, data;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    let maxTokens = 1200;
+    for (let attempt = 0; attempt < 3; attempt++) {
       resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: requestBody,
+        body: makeRequestBody(maxTokens),
       });
       data = await resp.json();
       _logNutritionDiagnostic('response_received', {
@@ -1301,17 +1302,27 @@ async function estimateMealCalories() {
         error: data.error?.message || null,
         contentPreview: data.choices?.[0]?.message?.content?.slice(0, 300) || null,
       });
-      if (resp.status !== 429 || attempt > 0) break;
 
-      const errorText = data.error?.message || '';
-      const retryHeader = Number.parseFloat(resp.headers.get('retry-after'));
-      const retryFromMessage = Number.parseFloat(errorText.match(/try again in ([\d.]+)s/i)?.[1]);
-      const retrySeconds = Math.min(30, Math.max(1, Math.ceil(retryHeader || retryFromMessage || 10)));
-      for (let left = retrySeconds; left > 0; left--) {
-        res.textContent = `Лимит Groq, повтор через ${left} сек.`;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (resp.status === 429 && attempt < 2) {
+        const errorText = data.error?.message || '';
+        const retryHeader = Number.parseFloat(resp.headers.get('retry-after'));
+        const retryFromMessage = Number.parseFloat(errorText.match(/try again in ([\d.]+)s/i)?.[1]);
+        const retrySeconds = Math.min(30, Math.max(1, Math.ceil(retryHeader || retryFromMessage || 10)));
+        for (let left = retrySeconds; left > 0; left--) {
+          res.textContent = `Лимит Groq, повтор через ${left} сек.`;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        res.textContent = 'Повторяю расчёт…';
+        continue;
       }
-      res.textContent = 'Повторяю расчёт…';
+
+      if (resp.ok && data.choices?.[0]?.finish_reason === 'length' && attempt < 2) {
+        maxTokens = 2400;
+        res.textContent = 'Ответ не поместился, повторяю расчёт…';
+        continue;
+      }
+
+      break;
     }
     if (!resp.ok || data.error) {
       throw new Error(data.error?.message || `Groq вернул HTTP ${resp.status}`);
