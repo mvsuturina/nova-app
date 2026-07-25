@@ -1,0 +1,17 @@
+{
+  "name": "nova-goals-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Отдельный Telegram-бот NOVA: план дня, напоминания, дайджест прогресса. Читает/пишет в Supabase напрямую через service role key. Самостоятельный процесс, не часть SPA.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "telegraf": "^4.16.3",
+    "ws": "^8.21.1"
+  }
+}

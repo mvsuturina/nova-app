@@ -28,6 +28,10 @@ DROP FUNCTION IF EXISTS public.is_red_zone(int,int)        CASCADE;
 DROP FUNCTION IF EXISTS public.ensure_daily_score(uuid,date) CASCADE;
 
 -- Дневные таблицы (порядок важен: дочерние раньше родительских)
+DROP TABLE IF EXISTS public.telegram_links         CASCADE;
+DROP TABLE IF EXISTS public.goal_plan_tasks        CASCADE;
+DROP TABLE IF EXISTS public.goal_plans             CASCADE;
+DROP TABLE IF EXISTS public.goals                  CASCADE;
 DROP TABLE IF EXISTS public.mini_goals             CASCADE;
 DROP TABLE IF EXISTS public.journal_entries        CASCADE;
 DROP TABLE IF EXISTS public.saved_recipes          CASCADE;
@@ -573,6 +577,69 @@ CREATE TABLE public.journal_entries (
 CREATE INDEX idx_je_user_date ON public.journal_entries (user_id, date DESC);
 
 
+-- ─── ЦЕЛИ И ПЛАН ДНЯ ──────────────────────────────────────────────────────
+-- Отдельная предметная область: долгосрочные цели пользователя + ежедневный
+-- план задач, привязанных к целям. НЕ участвует в скоре стресса — ничего
+-- отсюда не читается в recalculateScore() и не пишется в daily_scores.
+-- Пишут сюда SPA (anon key + RLS) и отдельный Telegram-бот (service role key,
+-- обходит RLS). Актуальный DDL — sql/20260725_add_goals_module.sql.
+CREATE TABLE public.goals (
+  id          int  PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id     uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  name        text NOT NULL,
+  description text,
+  metric      text,
+  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'experiment', 'paused', 'done')),
+  deadline    date,
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_goals_user_status ON public.goals (user_id, status);
+
+-- Один план на пользователя на дату.
+CREATE TABLE public.goal_plans (
+  id         int  PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id    uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  date       date NOT NULL,
+  focus      text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE UNIQUE INDEX uq_goal_plans_user_date ON public.goal_plans (user_id, date);
+
+-- duration_minutes — опционально, для целей с числовым маркером прогресса
+-- (напр. английский — часы/занятия в неделю); агрегируется в /progress бота.
+CREATE TABLE public.goal_plan_tasks (
+  id               int  PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  plan_id          int  REFERENCES public.goal_plans(id) ON DELETE CASCADE NOT NULL,
+  goal_id          int  REFERENCES public.goals(id) ON DELETE SET NULL,
+  time             time,
+  title            text NOT NULL,
+  priority         text NOT NULL CHECK (priority IN ('A', 'B', 'C')),
+  status           text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'done', 'skipped')),
+  note             text,
+  remind           bool NOT NULL DEFAULT true,
+  reminded_at      timestamptz,
+  duration_minutes int,
+  created_at       timestamptz DEFAULT now(),
+  updated_at       timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_goal_plan_tasks_plan ON public.goal_plan_tasks (plan_id);
+CREATE INDEX idx_goal_plan_tasks_goal ON public.goal_plan_tasks (goal_id);
+
+-- Привязка Telegram-чата к аккаунту (для /start бота).
+CREATE TABLE public.telegram_links (
+  id               int    PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id          uuid   REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  telegram_chat_id bigint NOT NULL,
+  linked_at        timestamptz DEFAULT now()
+);
+
+CREATE UNIQUE INDEX uq_telegram_links_chat_id ON public.telegram_links (telegram_chat_id);
+
+
 -- ─── ЗАМЫКАЕМ FK ──────────────────────────────────────────────────────────
 ALTER TABLE public.daily_scores
   ADD CONSTRAINT fk_ds_task
@@ -666,6 +733,21 @@ ALTER TABLE public.journal_entries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own journal" ON public.journal_entries FOR ALL USING (auth.uid() = user_id);
 ALTER TABLE public.mini_goals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own goals"   ON public.mini_goals   FOR ALL USING (auth.uid() = user_id);
+
+-- Цели и план дня (см. sql/20260725_add_goals_module.sql)
+ALTER TABLE public.goals           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goal_plans      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goal_plan_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.telegram_links  ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own goals"         ON public.goals      FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "own goal_plans"    ON public.goal_plans FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "own goal_plan_tasks" ON public.goal_plan_tasks FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.goal_plans p
+    WHERE p.id = plan_id AND p.user_id = auth.uid()
+  )
+);
+CREATE POLICY "own telegram_links" ON public.telegram_links FOR ALL USING (auth.uid() = user_id);
 
 
 -- ─── STORAGE: голосовые записи дневника ───────────────────────────────────

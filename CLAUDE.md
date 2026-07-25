@@ -511,3 +511,46 @@ DELETE FROM public.tools WHERE id = <id>;
 - «измени вес инструмента Дыхание на −10»
 
 Claude выдаст готовый SQL — запусти в Supabase, деплоить JS не нужно.
+
+---
+
+## Модуль целей и Telegram-бот
+
+Отдельная предметная область: долгосрочные цели пользователя + план дня. **Не участвует
+в скоре стресса** — ничего отсюда не читается в `recalculateScore()` и не пишется в
+`daily_scores`/`daily_score_snapshots`. Не путать с `mini_goals` (мини-цели на завтра из
+вечернего опроса, виджет на главной) и `daily_tasks` (инструменты красной зоны) — это
+разные таблицы и разные механики.
+
+### Таблицы (`sql/20260725_add_goals_module.sql`)
+
+| Таблица | Роль |
+|---------|------|
+| `goals` | Справочник долгосрочных целей: name, description, metric, status (active/experiment/paused/done), deadline |
+| `goal_plans` | Один план на пользователя на дату (`UNIQUE(user_id, date)`), опциональный `focus` |
+| `goal_plan_tasks` | Задачи плана: time, title, priority (A/B/C), status (pending/done/skipped), goal_id (nullable), remind, reminded_at, duration_minutes (для целей с числовым прогрессом, напр. часы английского в неделю) |
+| `telegram_links` | Привязка `telegram_chat_id` к `user_id` (создаётся командой `/start` в боте) |
+
+RLS: `goals`/`goal_plans`/`telegram_links` — обычная `auth.uid() = user_id`.
+`goal_plan_tasks` не хранит `user_id` напрямую — доступ через `EXISTS`-подзапрос к
+`goal_plans` (по образцу `daily_survey_answers`).
+
+### Кто пишет в эти таблицы
+
+- **SPA** (`js/goals.js`, экран «План дня» — кнопка «ПЛАН» на главной) — через обычный
+  anon key + RLS, только читает план и переключает `status` задачи `pending ↔ done`
+  (снятие галочки — назад в `pending`, не в `skipped`). `reminded_at` со стороны SPA не
+  трогается.
+- **Telegram-бот** (`bot/`, отдельный самостоятельный Node-процесс, не часть SPA/PWA) —
+  через `SUPABASE_SERVICE_ROLE_KEY` (обходит RLS). Создаёт/обновляет план целиком
+  (`/plan` или JSON-сообщением), шлёт напоминания по расписанию (`node-cron`, окно ±5 мин
+  с учётом таймзоны из `bot/.env`), считает `/progress` (агрегат по `duration_minutes` для
+  целей с числовым прогрессом). Подробности и формат JSON-плана — `bot/README.md`.
+
+### Если добавляешь фичу в этот модуль
+
+- Не трогать `score.js`/`daylog.js`/`breakdown.js`/`survey.js` — модуль полностью
+  изолирован от логики скора
+- Новые таблицы этой области — с префиксом `goal_`, чтобы не путать с `daily_tasks`/`daily_scores`
+- Service role key бота не должен попадать в `config.js`/любой файл SPA — только в `bot/.env`
+- При правках `js/goals.js`/`index.html` (экран «План дня») — бампнуть версию кеша в `sw.js`
