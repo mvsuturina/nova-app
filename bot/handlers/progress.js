@@ -1,5 +1,12 @@
 const { supabase } = require('../lib/supabase');
-const { todayKey } = require('../lib/timezone');
+const { todayKey, addDaysKey } = require('../lib/timezone');
+
+// Число дней "назад" от сегодня, включая сегодня (7 = неделя целиком).
+const PERIODS = {
+  week: { days: 7, label: 'неделю' },
+  month: { days: 30, label: 'месяц' },
+  year: { days: 365, label: 'год' },
+};
 
 function formatDuration(minutes) {
   if (!minutes) return null;
@@ -12,11 +19,12 @@ async function progressCommand(ctx) {
   const userId = process.env.NOVA_USER_ID;
   if (!userId) return ctx.reply('NOVA_USER_ID не задан в .env бота.');
 
-  const today = new Date();
-  const from = new Date(today);
-  from.setDate(from.getDate() - 6);
-  const fromKey = todayKey(from);
-  const toKey = todayKey(today);
+  const arg = ctx.message.text.replace(/^\/progress(@\w+)?\s*/, '').trim().toLowerCase();
+  const period = PERIODS[arg] ? arg : 'week';
+  const { days, label } = PERIODS[period];
+
+  const fromKey = addDaysKey(-(days - 1));
+  const toKey = todayKey();
 
   const { data: plans, error: plansErr } = await supabase
     .from('goal_plans')
@@ -60,7 +68,7 @@ async function progressCommand(ctx) {
     return `${g.name}: ${g.done} из ${g.total}${dur ? ', ' + dur : ''}`;
   });
 
-  ctx.reply(`📊 Сводка за ${fromKey}–${toKey}\n\n${lines.join('\n')}`);
+  ctx.reply(`📊 Сводка за ${label} (${fromKey}–${toKey})\n\n${lines.join('\n')}`);
 }
 
 module.exports = { progressCommand };

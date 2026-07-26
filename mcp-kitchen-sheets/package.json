@@ -1,0 +1,15 @@
+{
+  "name": "mcp-kitchen-sheets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP-сервер для Claude Desktop: чтение/запись Google-таблицы Kitchen OS. Отдельный от Telegram-бота процесс, запускается самим Claude Desktop по stdio.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "googleapis": "^173.0.0"
+  }
+}

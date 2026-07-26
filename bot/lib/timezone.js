@@ -10,9 +10,14 @@ function todayKey(date = new Date()) {
   return date.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
 }
 
-function tomorrowKey(date = new Date()) {
+// n может быть отрицательным (дни назад).
+function addDaysKey(n, date = new Date()) {
   const [y, m, d] = todayKey(date).split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+function tomorrowKey(date = new Date()) {
+  return addDaysKey(1, date);
 }
 
 function nowHHMM(date = new Date()) {
@@ -24,4 +29,4 @@ function nowHHMM(date = new Date()) {
   });
 }
 
-module.exports = { TZ, todayKey, tomorrowKey, nowHHMM };
+module.exports = { TZ, todayKey, tomorrowKey, addDaysKey, nowHHMM };

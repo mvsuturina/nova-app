@@ -541,11 +541,25 @@ RLS: `goals`/`goal_plans`/`telegram_links` — обычная `auth.uid() = user
   anon key + RLS, только читает план и переключает `status` задачи `pending ↔ done`
   (снятие галочки — назад в `pending`, не в `skipped`). `reminded_at` со стороны SPA не
   трогается.
+- **SPA** (`js/roadmap.js`, экран «Цели» — кнопка «ЦЕЛИ» на главной) — карточки целей
+  (name, status, deadline) + агрегат прогресса за неделю/месяц (done/total задач +
+  сумма `duration_minutes`), считается на клиенте по `goal_plans`/`goal_plan_tasks`
+  за последние 30 дней. Только чтение, ничего не пишет.
 - **Telegram-бот** (`bot/`, отдельный самостоятельный Node-процесс, не часть SPA/PWA) —
   через `SUPABASE_SERVICE_ROLE_KEY` (обходит RLS). Создаёт/обновляет план целиком
   (`/plan` или JSON-сообщением), шлёт напоминания по расписанию (`node-cron`, окно ±5 мин
-  с учётом таймзоны из `bot/.env`), считает `/progress` (агрегат по `duration_minutes` для
-  целей с числовым прогрессом). Подробности и формат JSON-плана — `bot/README.md`.
+  с учётом таймзоны из `bot/.env`), считает `/progress [week|month|year]` (агрегат по
+  `duration_minutes` для целей с числовым прогрессом). Подробности и формат JSON-плана —
+  `bot/README.md`.
+
+### Второй слой бота: ассистент по кухне (не путать с модулем целей)
+
+В том же `bot/` живёт независимый диалоговый ассистент поверх личной Google-таблицы
+учёта продуктов (Claude API + Google Sheets API, tool use). Не использует Supabase
+вообще — читает/пишет только Google Sheets. Свободный текст, не распознанный модулем
+целей, и фото (`bot.on('photo')`) уходят туда, см. `handlers/pantryChat.js`,
+`handlers/receiptPhoto.js`, `lib/anthropic.js`, `lib/pantryTools.js`, `lib/pantryAgent.js`
+и раздел «Ассистент по кухне» в `bot/README.md`.
 
 ### Если добавляешь фичу в этот модуль
 

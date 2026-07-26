@@ -33,21 +33,27 @@ async function planCommand(ctx) {
 }
 
 // Обычные текстовые сообщения: либо ответ-заметка после "Сделано", либо голый JSON плана.
+// Возвращает true, если сообщение обработано здесь (дальше по цепочке идти не надо),
+// иначе false — тогда index.js передаёт текст диалоговому ассистенту по кухне.
 async function handlePlanText(ctx, awaitingNote) {
   const text = ctx.message.text?.trim();
-  if (!text) return;
+  if (!text) return false;
 
   const chatId = ctx.chat.id;
   if (awaitingNote.has(chatId)) {
     const taskId = awaitingNote.get(chatId);
     awaitingNote.delete(chatId);
     const { error } = await supabase.from('goal_plan_tasks').update({ note: text }).eq('id', taskId);
-    return ctx.reply(error ? 'Не удалось сохранить заметку.' : 'Заметка сохранена.');
+    await ctx.reply(error ? 'Не удалось сохранить заметку.' : 'Заметка сохранена.');
+    return true;
   }
 
   if (text.startsWith('{')) {
     await applyPlan(ctx, text);
+    return true;
   }
+
+  return false;
 }
 
 module.exports = { planCommand, handlePlanText };
